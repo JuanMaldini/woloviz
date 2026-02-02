@@ -1,0 +1,52 @@
+.e3ds-shell {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.e3ds-shell.is-open .e3ds-aside {
+  width: 260px;
+  opacity: 1;
+  visibility: visible;
+}
+
+.e3ds-main {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.e3ds-video-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.e3ds-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.e3ds-aside {
+  width: 0;
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .e3ds-shell {
+    flex-direction: column;
+  }
+
+  .e3ds-shell.is-open .e3ds-aside {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+  }
+}

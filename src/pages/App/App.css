@@ -1,0 +1,110 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap");
+
+body {
+  margin: 0px;
+}
+
+* {
+  font-family: "Montserrat", Arial, Helvetica, sans-serif;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.app-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.app-body > .rooot,
+.app-body > .control-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-body > .rooot {
+  overflow: hidden;
+}
+
+.app-layout.immersive-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-layout.immersive-layout .app-body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-layout.immersive-layout .app-body > .rooot {
+  overflow: hidden;
+}
+
+.app-header {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  position: sticky;
+  top: 0;
+  background: white;
+}
+
+.app-footer {
+  flex-shrink: 0;
+}
+
+.backgroundColor {
+  background-color: hsl(0, 0%, 85%);
+}
+
+.topsColor {
+  background-color: hsl(0, 0%, 95%);
+  height: 100%;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #111827;
+  background: #111827;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover {
+  background: #0b1220;
+  border-color: #0b1220;
+}
+.btn.ghost {
+  border-color: #e5e7eb;
+  background: #fff;
+  color: #111827;
+}
+.btn.ghost:hover {
+  background: #f9fafb;
+}
+.btn.outline {
+  background: #fff;
+  color: #111827;
+  border-color: #111827;
+}

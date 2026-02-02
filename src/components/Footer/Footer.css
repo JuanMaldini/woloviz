@@ -1,0 +1,76 @@
+footer {
+	color: #4b5563;
+}
+
+footer > div {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 20px 24px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	box-sizing: border-box;
+}
+
+.FooterTop{
+  border-top: 1px solid #0b0f1a;
+}
+
+footer p {
+	margin: 0;
+	font-size: 14px;
+}
+
+.footer-content{
+	display: flex;
+	align-items: center;
+	justify-content: end;
+}
+
+footer a {
+	color: #111827;
+	text-decoration: none;
+	font-weight: 500;
+	padding: 6px 10px;
+	border-radius: 8px;
+	transition: background-color 160ms ease, color 160ms ease;
+}
+
+.footer-link-underline::after {
+	content: "";
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	bottom: 4px;
+	height: 2px;
+	background: currentColor;
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform 160ms ease;
+	opacity: 0.9;
+}
+.footer-link-underline:hover,
+.footer-link-underline:focus-visible {
+	background-color: transparent;
+	color: #0b0f1a;
+}
+.footer-link-underline:hover::after,
+.footer-link-underline:focus-visible::after {
+	transform: scaleX(1);
+}
+
+footer a:hover,
+footer a:focus-visible {
+	background-color: #f3f4f6; /* slate-100 */
+}
+
+footer a:focus-visible {
+	outline: 2px solid #93c5fd; /* blue-300 */
+	outline-offset: 2px;
+}
+
+/* transient highlight for footer contact link */
+.contact-link.highlight {
+	animation: footerHighlight 1600ms ease;
+}
