@@ -15,6 +15,13 @@ header {
   border-bottom: 1px solid #0b0f1a;
 }
 
+.nav-barnd{
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  
+}
+
 .navbar-brand {
   color: black;
   text-decoration: none;
