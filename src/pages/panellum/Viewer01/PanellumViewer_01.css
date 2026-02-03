@@ -1,0 +1,10 @@
+.viewer-container {
+  display: flex;
+  flex: 1;
+}
+
+.viewer-instance {
+  display: flex;
+  width: 100% !important;
+  height: 100% !important;
+}

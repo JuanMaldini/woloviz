@@ -7,7 +7,7 @@ import "./App.css";
 function App() {
   const location = useLocation();
   const hideFooterOn = new Set([
-    "/sample_svg",
+    "/panellum-viewer-01",
   ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `app-layout backgroundColor${shouldHideFooter ? " immersive-layout" : ""}`;
