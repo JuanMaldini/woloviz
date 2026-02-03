@@ -1,25 +1,17 @@
 import React from "react";
-import ReactPannellum, { getConfig } from "../PannellumLibrary";
+import Pannellum from "../PannellumLibrary/elements/Pannellum";
 import "./PanellumViewer_01.css";
 
 class Example extends React.Component {
-
-  click() {
-    console.log(getConfig());
-  }
-
   render() {
-    const config = {
-      hfov: 100,
-    };
     return (
       <div className="viewer-container">
-        <ReactPannellum
-          className="viewer-instance"
-          id="1"
-          sceneId="firstScene"
-          imageSource="../../../../public/projects/Sampleai/Sample_AI09_01.jpg"
-          config={config}
+        <Pannellum
+          id="panorama-viewer"
+          className="panorama-viewer"
+          width="100%"
+          height="100%"
+          image="/projects/Sampleai/Sample_AI09_01.jpg"
         />
       </div>
     );

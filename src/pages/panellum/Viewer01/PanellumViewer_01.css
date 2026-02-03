@@ -1,10 +1,11 @@
 .viewer-container {
   display: flex;
   flex: 1;
+  width: 100%;
+  min-height: 0;
 }
 
-.viewer-instance {
-  display: flex;
+.panorama-viewer {
   width: 100% !important;
   height: 100% !important;
 }
