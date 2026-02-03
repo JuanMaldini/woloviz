@@ -1,5 +1,5 @@
 import React from "react";
-import ReactPannellum, { getConfig, loadScene, setHfov } from "../PannellumLibrary";
+import ReactPannellum, { getConfig } from "../PannellumLibrary";
 import "./PanellumViewer_01.css";
 
 class Example extends React.Component {
