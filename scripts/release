@@ -24,7 +24,6 @@ MANIFEST="{ \"version\": \"$VERSION\", \"file\": \"marzipano-$VERSION.zip\" }"
 
 rm -rf dist
 mkdir -p dist
-mkdir -p dist/build
 
 sed s/VERSION_STRING/$VERSION/ src/preamble.js > dist/preamble.js
 
@@ -39,7 +38,7 @@ uglifyjs \
   -o dist/uglified.js \
   dist/browserified.js
 
-cat dist/preamble.js dist/uglified.js > dist/build/marzipano.js
+cat dist/preamble.js dist/uglified.js > dist/marzipano.js
 
 rm dist/preamble.js dist/browserified.js dist/uglified.js
 
@@ -50,4 +49,4 @@ cp LICENSE dist/LICENSE.txt
 echo "$MANIFEST" > dist/latest.json
 
 zip -j dist/marzipano-$VERSION.zip \
-  dist/build/marzipano.js dist/LICENSE.txt
+  dist/marzipano.js dist/LICENSE.txt
