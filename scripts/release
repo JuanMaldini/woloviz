@@ -27,9 +27,7 @@ cat dist/preamble.js dist/uglified.js > dist/build/marzipano.js
 
 rm dist/preamble.js dist/browserified.js dist/uglified.js
 
-if [ -f jsdoc.md ]; then
-  jsdoc -c jsdoc-conf.json
-fi
+jsdoc -c jsdoc-conf.json
 
 cp LICENSE dist/LICENSE.txt
 
