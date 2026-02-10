@@ -115,43 +115,21 @@ body.multiple-scenes.mobile #titleBar {
   line-height: 40px;
 }
 
-.tour-control-bar {
+#fullscreenToggle {
+  display: block;
   position: absolute;
   top: 0;
   right: 0;
-  display: flex;
-  align-items: stretch;
-  z-index: 5;
-}
-
-.tour-control-slot {
-  position: relative;
   width: 40px;
   height: 40px;
-}
-
-.mobile .tour-control-slot {
-  width: 50px;
-  height: 50px;
-}
-
-body.fullscreen-disabled .tour-control-slot-fullscreen {
-  display: none;
-}
-
-#fullscreenToggle {
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%;
   padding: 5px;
   background-color: rgb(103, 115, 131);
   background-color: rgba(103, 115, 131, 0.8);
 }
 
 .mobile #fullscreenToggle {
-  width: 100%;
-  height: 100%;
+  width: 50px;
+  height: 50px;
 }
 
 body.fullscreen-disabled #fullscreenToggle {
@@ -189,26 +167,28 @@ body.fullscreen-disabled #fullscreenToggle {
 
 #autorotateToggle {
   display: block;
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
   padding: 5px;
   background-color: rgb(103, 115, 131);
   background-color: rgba(103, 115, 131, 0.8);
 }
 
 .mobile #autorotateToggle {
-  width: 100%;
-  height: 100%;
+  width: 50px;
+  height: 50px;
 }
 
 /* If there is a fullscreen button, autorotate must placed a bit to the left */
 body.fullscreen-enabled #autorotateToggle {
-  right: auto;
+  right: 40px;
 }
 
 body.fullscreen-enabled.mobile #autorotateToggle {
-  right: auto;
+  right: 50px;
 }
 
 #autorotateToggle .icon {

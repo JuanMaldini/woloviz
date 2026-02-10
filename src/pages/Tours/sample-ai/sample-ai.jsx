@@ -971,32 +971,23 @@ const SampleAI = () => {
         <h1 className="sceneName" />
       </div>
 
-      <div className="tour-control-bar">
-        <div className="tour-control-slot tour-control-slot-autorotate">
-          <button
-            type="button"
-            id="autorotateToggle"
-            aria-label="Toggle autorotate"
-          >
-            <img className="icon off" src={assetUrls.play} alt="Play" />
-            <img className="icon on" src={assetUrls.pause} alt="Pause" />
-          </button>
-        </div>
-        <div className="tour-control-slot tour-control-slot-fullscreen">
-          <button
-            type="button"
-            id="fullscreenToggle"
-            aria-label="Toggle fullscreen"
-          >
-            <img
-              className="icon off"
-              src={assetUrls.fullscreen}
-              alt="Fullscreen"
-            />
-            <img className="icon on" src={assetUrls.windowed} alt="Windowed" />
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        id="autorotateToggle"
+        aria-label="Toggle autorotate"
+      >
+        <img className="icon off" src={assetUrls.play} alt="Play" />
+        <img className="icon on" src={assetUrls.pause} alt="Pause" />
+      </button>
+
+      <button
+        type="button"
+        id="fullscreenToggle"
+        aria-label="Toggle fullscreen"
+      >
+        <img className="icon off" src={assetUrls.fullscreen} alt="Fullscreen" />
+        <img className="icon on" src={assetUrls.windowed} alt="Windowed" />
+      </button>
 
       <button type="button" id="sceneListToggle" aria-label="Toggle scene list">
         <img className="icon off" src={assetUrls.expand} alt="Expand" />
