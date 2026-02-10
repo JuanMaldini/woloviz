@@ -4,7 +4,7 @@ import SegVialGremio from "../pages/InteractiveProjects/SegVialGremio/SegVialGre
 import NotFound from "../pages/NotFound/NotFound";
 import Contact from "../pages/contact/contact";
 import SampleAI from "../pages/Tours/sample-ai/sample-ai";
-import Marzipano from "../pages/Tours/marzipano/marzipano";
+import Marzipano from "../pages/Tours/marzipano/Marzipano";
 
 const AppRoutes = () => {
   return (
