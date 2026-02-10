@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 function App() {
   const location = useLocation();
-  const hideFooterOn = new Set(["/sample-ai", "/example"]);
+  const hideFooterOn = new Set(["/sample-ai", "/example", "/samplesvg"]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-screen w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-screen overflow-hidden" : ""}`;
   const bodyClass = `flex min-h-0 flex-1 flex-col${shouldHideFooter ? " h-full overflow-hidden" : ""}`;
