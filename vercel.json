@@ -1,5 +1,5 @@
 {
-  "buildCommand": "scripts/release && npm run web:build",
+  "buildCommand": "bash scripts/release && npm run web:build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
