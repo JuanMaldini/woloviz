@@ -58,13 +58,7 @@ function getVersion() {
   }
 
   // Check that the git version has the expected format.
-  var gitVersion;
-  try {
-    gitVersion = getGitVersion();
-  } catch (err) {
-    // Fallback when git tags are not available (e.g., CI shallow clone)
-    return npmMatch[1] + '-dev';
-  }
+  var gitVersion = getGitVersion();
   var gitMatch = gitRegex.exec(gitVersion);
   if (!gitMatch) {
     throw new Error("Invalid git version: " + gitVersion);
