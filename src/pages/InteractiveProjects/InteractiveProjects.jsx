@@ -1,15 +1,30 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import './InteractiveProjects.css';
+import React from "react";
+import { Link } from "react-router-dom";
 
 const InteractiveProjects = () => (
-  <div>
-    <h1>Interactive Projects</h1>
-    <div className='links-projects'>
-      
-      <Link to="/samplesvg">Seg Vial Gremio</Link>
-      <Link to="/sample-ai">Sample AI</Link>
-      <Link to="/example">Example</Link>
+  <div className="flex min-h-full w-full flex-1 flex-col bg-[#f5f5f5] px-6 py-6">
+    <h1 className="mb-4 text-2xl font-semibold text-slate-900">
+      Interactive Projects
+    </h1>
+    <div className="ml-8 flex flex-col gap-2">
+      <Link
+        to="/samplesvg"
+        className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
+      >
+        Seg Vial Gremio
+      </Link>
+      <Link
+        to="/sample-ai"
+        className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
+      >
+        Sample AI
+      </Link>
+      <Link
+        to="/example"
+        className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
+      >
+        Example
+      </Link>
     </div>
   </div>
 );

@@ -1,8 +1,6 @@
-import "./Sidepanel.css";
-
 import { useMemo, useState } from "react";
 
-import { sendCustomCommand } from "../../E3DS/utils/e3ds-messaging";
+import { sendCustomCommand } from "../E3DS/utils/e3ds-messaging";
 
 const SECTIONS = [
   {
@@ -159,51 +157,58 @@ export default function Sidepanel() {
   }
 
   return (
-    <div className="sp-panel">
-      <div className="sp-header">
-        <strong className="sp-title">Controls</strong>
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#f4f5f6] text-[#111] max-[600px]:text-[0.78rem]">
+      <div className="flex items-baseline justify-between gap-2 border-b border-slate-300 bg-white px-4 py-3 text-[0.95rem] max-[900px]:px-3 max-[900px]:py-2">
+        <strong className="text-sm font-bold">Controls</strong>
       </div>
 
-      <div className="sp-body" id="sp-body">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white" id="sp-body">
         {SECTIONS.map((section) => {
           const isOpen = openSections.has(section.title);
           const sectionId = section.title;
           const sectionBodyId = `sp-section-body-${sectionId}`;
 
           return (
-            <div key={section.title} className="sp-section-wrapper">
+            <div key={section.title} className="flex flex-col">
               <button
                 type="button"
-                className="sp-section-header sp-section-header-btn"
+                className="flex min-h-10 w-full items-center justify-between gap-2 border-b border-slate-200 bg-black/5 px-3 py-1 text-left hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-expanded={isOpen}
                 aria-controls={sectionBodyId}
                 onClick={() => toggleSection(section.title)}
               >
-                <h2 className="sp-section-title">{section.title}</h2>
-                <span className="sp-section-chevron" aria-hidden>
+                <h2 className="m-0 p-0 text-[0.95rem] font-semibold text-[#111]">
+                  {section.title}
+                </h2>
+                <span
+                  className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-sm text-slate-700"
+                  aria-hidden
+                >
                   {isOpen ? "▾" : "▸"}
                 </span>
               </button>
 
               <div
-                className="sp-section-body"
+                className="flex flex-col bg-white p-3"
                 id={sectionBodyId}
                 hidden={!isOpen}
               >
-                <div className="sp-actions">
+                <div className="grid grid-cols-1 gap-2">
                   {section.actions.map((action) => (
                     <button
                       key={`${section.title}:${action.label}`}
                       type="button"
-                      className="sp-action-btn"
+                      className="w-full rounded-[10px] border border-slate-200 bg-white p-2.5 text-left transition-colors duration-200 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                       onClick={() => emitAction(action)}
                       title={
                         action.description ??
                         `${action.field}: ${String(action.value)}`
                       }
                     >
-                      <span className="sp-action-label">{action.label}</span>
-                      <span className="sp-action-meta">
+                      <span className="block text-[0.85rem] font-bold leading-tight">
+                        {action.label}
+                      </span>
+                      <span className="mt-1 block break-words text-[0.7rem] text-slate-600">
                         {action.description ??
                           `${action.field}: ${String(action.value)}`}
                       </span>

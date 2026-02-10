@@ -1,6 +1,5 @@
-import "./E3DSPlayer.css";
 import { useRef, useEffect } from "react";
-import Sidepanel from "../panel/sidepanel/Sidepanel";
+import Sidepanel from "../panel/Sidepanel";
 
 function E3DSPlayer() {
   const iframeRef = useRef(null);
@@ -21,9 +20,9 @@ function E3DSPlayer() {
   }, []);
 
   return (
-    <div className="e3ds-shell is-open">
-      <main className="e3ds-main">
-        <div className="e3ds-video-wrapper">
+    <div className="flex h-screen w-full overflow-hidden bg-black max-md:flex-col">
+      <main className="relative flex-1 overflow-hidden">
+        <div className="relative h-full w-full">
           <iframe
             ref={iframeRef}
             id="iframe_1"
@@ -31,11 +30,11 @@ function E3DSPlayer() {
             width="100%"
             height="100%"
             allowFullScreen
-            className="e3ds-iframe"
+            className="h-full w-full border-none"
           />
         </div>
       </main>
-      <aside className="e3ds-aside">
+      <aside className="w-[260px] overflow-hidden transition-all duration-300 ease-in-out max-md:h-auto max-md:max-h-[40vh] max-md:w-full">
         <Sidepanel />
       </aside>
     </div>
