@@ -5,6 +5,7 @@ import NotFound from "../pages/NotFound/NotFound";
 import Contact from "../pages/contact/contact";
 import SampleAI from "../pages/Tours/sample-ai/sample-ai";
 import Marzipano from "../pages/Tours/marzipano/Marzipano";
+import InteractiveProjects from "../pages/InteractiveProjects/InteractiveProjects";
 
 const AppRoutes = () => {
   return (
@@ -13,6 +14,8 @@ const AppRoutes = () => {
       <Route path="/contact" element={<Contact />} />
 
       {/*INTERACTIVA APP*/}
+      <Route path="/interactive-projects" element={<InteractiveProjects />} />
+
       <Route path="/samplesvg" element={<SegVialGremio />} />
 
       {/*TOUR*/}

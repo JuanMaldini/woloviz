@@ -58,7 +58,12 @@ function getVersion() {
   }
 
   // Check that the git version has the expected format.
-  var gitVersion = getGitVersion();
+  var gitVersion;
+  try {
+    gitVersion = getGitVersion();
+  } catch (err) {
+    return npmMatch[1] + '-dev';
+  }
   var gitMatch = gitRegex.exec(gitVersion);
   if (!gitMatch) {
     throw new Error("Invalid git version: " + gitVersion);

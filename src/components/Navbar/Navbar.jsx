@@ -18,25 +18,18 @@ const Navbar = () => {
           Home
         </Link>
         <Link
+          to="/interactive-projects"
+          className="nav-link"
+          onClick={() => setIsMenuOpen(false)}
+        >
+          Projects
+        </Link>
+        <Link
           to="/contact"
           className="nav-link"
           onClick={() => setIsMenuOpen(false)}
         >
           Contact
-        </Link>
-        <Link
-          to="/sample-ai"
-          className="nav-link"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          Sample AI
-        </Link>
-        <Link
-          to="/example"
-          className="nav-link"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          Example
         </Link>
       </nav>
       <button
