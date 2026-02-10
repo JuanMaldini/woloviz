@@ -7,7 +7,7 @@ const data = {
     {
       id: "scene1",
       name: "Scene 1",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_01.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_01.jpg",
       equirectWidth: 4000,
       initialViewParameters: { pitch: -3, yaw: 117, fov: 110 },
       linkHotspots: [
@@ -45,7 +45,7 @@ const data = {
     {
       id: "scene2",
       name: "Scene 2",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_02.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_02.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: -78.85, pitch: -39.85, target: "scene1" },
@@ -78,7 +78,7 @@ const data = {
     {
       id: "scene3",
       name: "Scene 3",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_03.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_03.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 78.85, pitch: -39.85, target: "scene1" },
@@ -107,7 +107,7 @@ const data = {
     {
       id: "scene4",
       name: "Scene 4",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_04.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_04.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 83.34, pitch: -22.26, target: "scene1" },
@@ -140,7 +140,7 @@ const data = {
     {
       id: "scene5",
       name: "Scene 5",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_05.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_05.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 40.28816438988322, pitch: -17.36874125533316, target: "scene1" },
@@ -169,7 +169,7 @@ const data = {
     {
       id: "scene6",
       name: "Scene 6",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_06.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_06.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         {
@@ -214,7 +214,7 @@ const data = {
     {
       id: "scene7",
       name: "Scene 7",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_07.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_07.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         {
@@ -251,7 +251,7 @@ const data = {
     {
       id: "scene8",
       name: "Scene 8",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_08.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_08.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         {
@@ -296,7 +296,7 @@ const data = {
     {
       id: "scene9",
       name: "Scene 9",
-      imageUrl: "../../../../public/projects/Sampleai/Sample_AI09_09.jpg",
+      imageUrl: "/projects/Sampleai/Sample_AI09_09.jpg",
       equirectWidth: 4000,
       linkHotspots: [
         {
