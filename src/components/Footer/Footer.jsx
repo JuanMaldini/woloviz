@@ -21,7 +21,7 @@ const Footer = () => (
             window.location.href = buildContactMailtoHref();
           }}
         >
-          Contact
+          Email
         </a>
       </div>
     </footer>
