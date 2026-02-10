@@ -1,4 +1,4 @@
-header {
+.navbar-header {
   color: hsl(221, 39%, 11%);
   padding: 16px 24px;
   display: flex;
@@ -15,11 +15,10 @@ header {
   border-bottom: 1px solid #0b0f1a;
 }
 
-.nav-barnd{
+.nav-brand {
   display: flex;
   align-items: center;
   gap: 1rem;
-  
 }
 
 .navbar-brand {
@@ -41,7 +40,7 @@ header nav {
   gap: 12px;
 }
 
-header nav a {
+.nav-link {
   color: #111827;
   text-decoration: none;
   font-weight: 500;
@@ -82,11 +81,11 @@ header nav a {
   transform: scaleX(1);
 }
 
-header nav a:hover,
-header nav a:focus-visible {
+.nav-link:hover,
+.nav-link:focus-visible {
   background-color: #f3f4f6;
 }
-header nav a:focus-visible {
+.nav-link:focus-visible {
   outline: 2px solid #93c5fd;
 }
 
@@ -143,7 +142,7 @@ header nav a:focus-visible {
   outline: 2px solid #93c5fd;
 }
 
-.nav {
+.navbar {
   transition: all 0.3s ease;
 }
 
@@ -157,8 +156,10 @@ header nav a:focus-visible {
   padding: 16px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border-radius: 0 0 8px 8px;
+  z-index: 50;
 }
 
+.nav-open .nav-link,
 .nav-open .nav-link-underline,
 .nav-open .nav-link-button {
   width: 100%;
@@ -167,13 +168,10 @@ header nav a:focus-visible {
 }
 
 @media (max-width: 768px) {
-  .navbar-brand {
+  .nav-brand {
     font-size: 18px;
   }
-  .navbar-brand img {
-    width: 200px;
-  }
-  header nav {
+  .navbar {
     display: none;
   }
   .nav-open {
