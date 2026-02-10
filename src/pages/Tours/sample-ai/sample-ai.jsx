@@ -521,7 +521,7 @@ const SampleAI = () => {
         ]);
 
         const limiter = Marzipano.RectilinearView.limit.traditional(
-          1024,
+          4000,
           (120 * Math.PI) / 180,
           (120 * Math.PI) / 180,
         );
