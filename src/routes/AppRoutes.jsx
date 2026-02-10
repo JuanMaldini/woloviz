@@ -1,11 +1,11 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "../pages/Home/Home";
-import SegVialGremio from "../pages/InteractiveProjects/SegVialGremio/SegVialGremio";
+import SegVialGremio from "../pages/Projects/SegVialGremio/SegVialGremio";
 import NotFound from "../pages/NotFound/NotFound";
 import Contact from "../pages/contact/contact";
-import SampleAI from "../pages/Tours/sample-ai/sample-ai";
-import Marzipano from "../pages/Tours/marzipano/Marzipano";
-import InteractiveProjects from "../pages/InteractiveProjects/InteractiveProjects";
+import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
+import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
+import Projects from "../pages/Projects/Projects";
 
 const AppRoutes = () => {
   return (
@@ -14,7 +14,7 @@ const AppRoutes = () => {
       <Route path="/contact" element={<Contact />} />
 
       {/*INTERACTIVA APP*/}
-      <Route path="/interactive-projects" element={<InteractiveProjects />} />
+      <Route path="/projects" element={<Projects />} />
 
       <Route path="/samplesvg" element={<SegVialGremio />} />
 

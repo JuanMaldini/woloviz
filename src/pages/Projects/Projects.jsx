@@ -1,11 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-const InteractiveProjects = () => (
+const Projects = () => (
   <div className="flex min-h-full w-full flex-1 flex-col bg-[#f5f5f5] px-6 py-6">
-    <h1 className="mb-4 text-2xl font-semibold text-slate-900">
-      Interactive Projects
-    </h1>
     <div className="ml-8 flex flex-col gap-2">
       <Link
         to="/samplesvg"
@@ -29,4 +26,4 @@ const InteractiveProjects = () => (
   </div>
 );
 
-export default InteractiveProjects;
+export default Projects;
