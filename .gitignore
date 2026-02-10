@@ -6,7 +6,7 @@ npm-debug.log
 package-lock.json
 /node_modules/*
 /tmp/*
-/build/*
+/1111build/*
 /dist/*
 /docs/*
 /test/test_suite.js*
