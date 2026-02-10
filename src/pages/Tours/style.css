@@ -169,7 +169,7 @@ body.fullscreen-disabled #fullscreenToggle {
   display: block;
   position: absolute;
   top: 0;
-  right: 0;
+  right: 40px;
   width: 40px;
   height: 40px;
   padding: 5px;
@@ -178,17 +178,18 @@ body.fullscreen-disabled #fullscreenToggle {
 }
 
 .mobile #autorotateToggle {
+  right: 50px;
   width: 50px;
   height: 50px;
 }
 
-/* If there is a fullscreen button, autorotate must placed a bit to the left */
-body.fullscreen-enabled #autorotateToggle {
-  right: 40px;
+/* If fullscreen is disabled, keep autorotate in the corner */
+body.fullscreen-disabled #autorotateToggle {
+  right: 0;
 }
 
-body.fullscreen-enabled.mobile #autorotateToggle {
-  right: 50px;
+body.fullscreen-disabled.mobile #autorotateToggle {
+  right: 0;
 }
 
 #autorotateToggle .icon {
