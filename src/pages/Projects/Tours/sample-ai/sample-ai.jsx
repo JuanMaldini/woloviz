@@ -608,7 +608,11 @@ const SampleAI = () => {
         sceneListToggleElement.onclick = toggleSceneList;
       }
 
-      hideSceneList();
+      if (!document.body.classList.contains("mobile")) {
+        showSceneList();
+      } else {
+        hideSceneList();
+      }
 
       scenes.forEach((scene) => {
         const el = document.querySelector(

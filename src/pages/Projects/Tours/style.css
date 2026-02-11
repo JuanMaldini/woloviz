@@ -85,6 +85,43 @@ body.fullscreen-enabled.mobile #titleBar {
   right: 100px;
 }
 
+/* Hide fullscreen toggle on tablet and smaller screens */
+@media (max-width: 1024px) {
+  #fullscreenToggle {
+    display: none;
+  }
+
+  body.marzipano-navbar #fullscreenToggle {
+    display: none;
+  }
+
+  body.fullscreen-enabled #titleBar {
+    right: 40px;
+  }
+
+  body.fullscreen-enabled.mobile #titleBar {
+    right: 50px;
+  }
+
+  body.marzipano-navbar #titleBar {
+    right: 36px;
+  }
+
+  body.marzipano-navbar.mobile #titleBar {
+    right: 36px;
+  }
+
+  body.fullscreen-enabled #autorotateToggle,
+  body.fullscreen-enabled.mobile #autorotateToggle {
+    right: 0;
+  }
+
+  body.marzipano-navbar #autorotateToggle,
+  body.marzipano-navbar.mobile #autorotateToggle {
+    right: 0;
+  }
+}
+
 /* If there are multiple scenes the title bar must make space for the scene list toggle */
 body.multiple-scenes #titleBar {
   left: 40px;
@@ -523,6 +560,20 @@ body.marzipano-navbar #sceneListToggle .icon,
 body.marzipano-navbar #autorotateToggle .icon,
 body.marzipano-navbar #fullscreenToggle .icon {
   filter: brightness(0);
+}
+
+@media (max-width: 1024px) {
+  body.marzipano-navbar #fullscreenToggle {
+    display: none;
+  }
+
+  body.marzipano-navbar #autorotateToggle {
+    right: 0;
+  }
+
+  body.marzipano-navbar #titleBar {
+    right: 36px;
+  }
 }
 
 /* Hide scene list when only a single scene exists */
