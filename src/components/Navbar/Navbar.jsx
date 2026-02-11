@@ -53,6 +53,13 @@ const Navbar = () => {
       <div className="flex items-center gap-3">
         <nav className={navClassName}>
           <Link
+            to="/about"
+            className={linkClassName}
+            onClick={() => setIsMenuOpen(false)}
+          >
+            About
+          </Link>
+          <Link
             to="/projects"
             className={linkClassName}
             onClick={() => setIsMenuOpen(false)}

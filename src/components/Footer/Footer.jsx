@@ -21,7 +21,7 @@ const Footer = () => (
             window.location.href = buildContactMailtoHref();
           }}
         >
-          Email
+          contact@woloviz.com
         </a>
       </div>
     </footer>

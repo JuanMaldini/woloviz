@@ -8,12 +8,14 @@ import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
 import Projects from "../pages/Projects/Projects";
 import AccessGate from "../pages/segurity/AccessGate";
 import ProtectedRoute from "./ProtectedRoute";
+import About from "../pages/About/About";
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/about" element={<About />} />
 
       {/*SECURITY*/}
       <Route path="/security" element={<AccessGate />} />
