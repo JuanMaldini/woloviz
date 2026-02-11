@@ -136,6 +136,7 @@ const Marzipano = () => {
       link: new URL("../imgButtons/link.png", import.meta.url).href,
       info: new URL("../imgButtons/info.png", import.meta.url).href,
       close: new URL("../imgButtons/close.png", import.meta.url).href,
+      location: new URL("../imgButtons/location.png", import.meta.url).href,
     }),
     [],
   );
@@ -712,11 +713,19 @@ const Marzipano = () => {
 
       {topBarTarget ? (
         createPortal(
-          <MarzipanoTopBar scenes={data.scenes} assetUrls={assetUrls} />,
+          <MarzipanoTopBar
+            scenes={data.scenes}
+            assetUrls={assetUrls}
+            showFloorplan={false}
+          />,
           topBarTarget,
         )
       ) : (
-        <MarzipanoTopBar scenes={data.scenes} assetUrls={assetUrls} />
+        <MarzipanoTopBar
+          scenes={data.scenes}
+          assetUrls={assetUrls}
+          showFloorplan={false}
+        />
       )}
 
       <button

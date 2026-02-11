@@ -4,6 +4,19 @@ import bowser from "bowser";
 import "../style.css";
 import MarzipanoTopBar from "../components/MarzipanoTopBar";
 
+// Percentage-based positions so markers stay aligned on resize.
+const floorplanScenePositions = [
+  { id: "scene1", x: 58, y: 32 },
+  { id: "scene2", x: 76, y: 32 },
+  { id: "scene3", x: 41, y: 32 },
+  { id: "scene4", x: 23, y: 32 },
+  { id: "scene5", x: 23, y: 73 },
+  { id: "scene6", x: 46, y: 46 },
+  { id: "scene7", x: 50, y: 73 },
+  { id: "scene8", x: 75, y: 73 },
+  { id: "scene9", x: 81, y: 61 },
+];
+
 const data = {
   scenes: [
     {
@@ -372,6 +385,9 @@ const SampleAI = () => {
       plus: new URL("../imgButtons/plus.png", import.meta.url).href,
       minus: new URL("../imgButtons/minus.png", import.meta.url).href,
       link: new URL("../imgButtons/location.png", import.meta.url).href,
+      location: new URL("../imgButtons/location.png", import.meta.url).href,
+      floorplan: new URL("/projects/Sampleai/Floorplan.png", import.meta.url)
+        .href,
       info: new URL("../imgButtons/info.png", import.meta.url).href,
       close: new URL("../imgButtons/close.png", import.meta.url).href,
     }),
@@ -968,7 +984,11 @@ const SampleAI = () => {
     <div ref={rootRef} className="sample-ai-root">
       {topBarTarget &&
         createPortal(
-          <MarzipanoTopBar scenes={data.scenes} assetUrls={assetUrls} />,
+          <MarzipanoTopBar
+            scenes={data.scenes}
+            assetUrls={assetUrls}
+            floorplanPositions={floorplanScenePositions}
+          />,
           topBarTarget,
         )}
       <div id="pano" />

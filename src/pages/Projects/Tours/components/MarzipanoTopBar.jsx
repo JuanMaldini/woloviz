@@ -1,21 +1,37 @@
-const MarzipanoTopBar = ({ scenes, assetUrls }) => {
+//adding fllorplan image
+const MarzipanoTopBar = ({
+  scenes,
+  assetUrls,
+  showFloorplan = true,
+  floorplanPositions = [],
+}) => {
+  const floorplanIconSize = 30;
+  const positionById = floorplanPositions.reduce((acc, item) => {
+    acc[item.id] = item;
+    return acc;
+  }, {});
+
   return (
     <>
-      <input
-        type="checkbox"
-        id="floorPlanToggle"
-        className="floor-plan-toggle"
-      />
+      {showFloorplan && (
+        <input
+          type="checkbox"
+          id="floorPlanToggle"
+          className="floor-plan-toggle"
+        />
+      )}
       <div id="sceneList">
         <ul className="scenes">
-          <li className="floor-plan-item">
-            <label
-              className="scene floor-plan-trigger"
-              htmlFor="floorPlanToggle"
-            >
-              <span className="text">Floorplan</span>
-            </label>
-          </li>
+          {showFloorplan && (
+            <li className="floor-plan-item">
+              <label
+                className="scene floor-plan-trigger"
+                htmlFor="floorPlanToggle"
+              >
+                <span className="text">Floorplan</span>
+              </label>
+            </li>
+          )}
           {scenes.map((scene) => (
             <li key={scene.id}>
               <button type="button" className="scene" data-id={scene.id}>
@@ -26,39 +42,63 @@ const MarzipanoTopBar = ({ scenes, assetUrls }) => {
         </ul>
       </div>
 
-      <div
-        className="info-hotspot-modal floor-plan-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Floorplan"
-      >
-        <div className="floor-plan-panel">
-          <div className="info-hotspot-header">
-            <div className="info-hotspot-title-wrapper">
-              <span className="info-hotspot-title">Floorplan</span>
+      {showFloorplan && (
+        <div
+          className="info-hotspot-modal floor-plan-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Floorplan"
+        >
+          <label
+            className="floor-plan-backdrop"
+            htmlFor="floorPlanToggle"
+            aria-label="Close floor plan"
+          />
+          <div className="floor-plan-panel">
+            <div className="floor-plan-stage">
+              <div className="floor-plan-image">
+                {assetUrls.floorplan ? (
+                  <img src={assetUrls.floorplan} alt="Floorplan" />
+                ) : null}
+              </div>
+              <ul className="floor-plan-scenes">
+                {scenes.map((scene) => (
+                  <li
+                    key={`floor-plan-${scene.id}`}
+                    className="floor-plan-scene"
+                    style={{
+                      left:
+                        typeof positionById[scene.id]?.x === "number"
+                          ? `${positionById[scene.id].x}%`
+                          : (positionById[scene.id]?.x ?? "0%"),
+                      top:
+                        typeof positionById[scene.id]?.y === "number"
+                          ? `${positionById[scene.id].y}%`
+                          : (positionById[scene.id]?.y ?? "0%"),
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="scene"
+                      data-id={scene.id}
+                      title={scene.name}
+                      aria-label={scene.name}
+                    >
+                      <img
+                        src={assetUrls.location}
+                        alt=""
+                        width={floorplanIconSize}
+                        height={floorplanIconSize}
+                        loading="lazy"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <label
-              className="info-hotspot-close-wrapper floor-plan-close"
-              htmlFor="floorPlanToggle"
-              aria-label="Close floor plan"
-            >
-              <span className="floor-plan-close-icon">X</span>
-            </label>
-          </div>
-          <div className="info-hotspot-text">
-            <ul className="floor-plan-scenes">
-              {scenes.map((scene) => (
-                <li key={`floor-plan-${scene.id}`}>
-                  <button type="button" className="scene" data-id={scene.id}>
-                    <span className="text">{scene.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="floor-plan-image">Placeholder image</div>
           </div>
         </div>
-      </div>
+      )}
 
       <div id="titleBar">
         <h1 className="sceneName" />

@@ -1108,7 +1108,7 @@ body.single-scene #sceneListToggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 4px;
   background-color: rgba(0, 0, 0, 0.4);
   opacity: 0;
   visibility: hidden;
@@ -1120,106 +1120,73 @@ body.single-scene #sceneListToggle {
 
 .floor-plan-panel {
   position: relative;
-  width: min(360px, 92vw);
+  width: auto;
   max-height: none;
-  background-color: #fff;
+  background-color: transparent;
   color: #0f172a;
-  border: 1px solid rgba(15, 23, 42, 0.2);
+  border: 0;
   border-radius: 6px;
   overflow: hidden;
 }
 
-.floor-plan-modal .info-hotspot-header {
-  position: static;
-  height: auto;
-  background-color: transparent;
-  opacity: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
-}
-
-.floor-plan-modal .info-hotspot-title-wrapper {
-  position: static;
-  height: auto;
-  padding: 0;
-}
-
-.floor-plan-modal .info-hotspot-title-wrapper:before {
-  content: none;
-}
-
-.floor-plan-modal .info-hotspot-title {
-  font-weight: 600;
-}
-
-.floor-plan-modal .info-hotspot-text {
-  position: static;
-  padding: 10px;
-  background-color: transparent;
-  opacity: 1;
-  color: inherit;
-  max-height: none;
-  overflow: visible;
-}
-
-.floor-plan-modal .floor-plan-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: auto;
-  height: auto;
-  background-color: transparent !important;
-  border: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.floor-plan-close-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
 .floor-plan-scenes {
   list-style: none;
-  margin: 0 0 10px 0;
+  margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6px;
+  position: absolute;
+  inset: 0;
+}
+
+.floor-plan-scene {
+  position: absolute;
+  transform: translate(-50%, -50%);
 }
 
 .floor-plan-modal .scene {
   height: auto;
 }
 
-.floor-plan-modal .scene .text {
-  display: block;
-  padding: 6px 8px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 4px;
-  color: inherit;
-  background-color: #f8fafc;
+.floor-plan-modal .scene {
+  transition: filter 120ms ease;
+}
+
+.floor-plan-modal .scene img {
+  transition: all 60ms ease;
+}
+
+.no-touch .floor-plan-modal .scene:hover img {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+  transform: scale(1.1);
+}
+
+.floor-plan-stage {
+  position: relative;
+  width: min(90vmin, 760px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
 }
 
 .floor-plan-image {
+  position: absolute;
+  inset: 0;
+}
+
+.floor-plan-image img {
   width: 100%;
-  height: 140px;
-  border: 1px dashed rgba(15, 23, 42, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: #334155;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.floor-plan-backdrop {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.floor-plan-panel {
+  z-index: 1;
 }
 
 .info-hotspot-modal.visible .info-hotspot-text {
