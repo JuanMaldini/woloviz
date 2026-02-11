@@ -474,7 +474,7 @@ const SampleAI = () => {
       const panoElement = root.querySelector("#pano");
       const sceneNameElement = document.querySelector("#titleBar .sceneName");
       const sceneListElement = document.querySelector("#sceneList");
-      const sceneElements = document.querySelectorAll("#sceneList .scene");
+      const sceneElements = document.querySelectorAll(".scene[data-id]");
       const sceneListToggleElement = document.querySelector("#sceneListToggle");
       const autorotateToggleElement =
         document.querySelector("#autorotateToggle");
@@ -615,14 +615,16 @@ const SampleAI = () => {
       }
 
       scenes.forEach((scene) => {
-        const el = document.querySelector(
-          `#sceneList .scene[data-id="${scene.data.id}"]`,
+        const elements = document.querySelectorAll(
+          `.scene[data-id="${scene.data.id}"]`,
         );
-        el?.addEventListener("click", () => {
-          switchScene(scene);
-          if (document.body.classList.contains("mobile")) {
-            hideSceneList();
-          }
+        elements.forEach((el) => {
+          el.addEventListener("click", () => {
+            switchScene(scene);
+            if (document.body.classList.contains("mobile")) {
+              hideSceneList();
+            }
+          });
         });
       });
 

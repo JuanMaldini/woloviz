@@ -237,7 +237,7 @@ const Marzipano = () => {
       const panoElement = root.querySelector("#pano");
       const sceneNameElement = uiScope.querySelector("#titleBar .sceneName");
       const sceneListElement = uiScope.querySelector("#sceneList");
-      const sceneElements = uiScope.querySelectorAll("#sceneList .scene");
+      const sceneElements = uiScope.querySelectorAll(".scene[data-id]");
       const sceneListToggleElement = uiScope.querySelector("#sceneListToggle");
       const autorotateToggleElement =
         uiScope.querySelector("#autorotateToggle");
@@ -369,14 +369,16 @@ const Marzipano = () => {
       }
 
       scenes.forEach((scene) => {
-        const el = uiScope.querySelector(
-          `#sceneList .scene[data-id="${scene.data.id}"]`,
+        const elements = uiScope.querySelectorAll(
+          `.scene[data-id="${scene.data.id}"]`,
         );
-        el?.addEventListener("click", () => {
-          switchScene(scene);
-          if (document.body.classList.contains("mobile")) {
-            hideSceneList();
-          }
+        elements.forEach((el) => {
+          el.addEventListener("click", () => {
+            switchScene(scene);
+            if (document.body.classList.contains("mobile")) {
+              hideSceneList();
+            }
+          });
         });
       });
 
