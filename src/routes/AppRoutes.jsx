@@ -6,6 +6,8 @@ import Contact from "../pages/contact/contact";
 import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
 import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
 import Projects from "../pages/Projects/Projects";
+import AccessGate from "../pages/segurity/AccessGate";
+import ProtectedRoute from "./ProtectedRoute";
 
 const AppRoutes = () => {
   return (
@@ -13,10 +15,12 @@ const AppRoutes = () => {
       <Route path="/" element={<Home />} />
       <Route path="/contact" element={<Contact />} />
 
+      {/*SECURITY*/}
+      <Route path="/security" element={<AccessGate />} />
+
       {/*INTERACTIVA APP*/}
       <Route path="/projects" element={<Projects />} />
-
-      <Route path="/samplesvg" element={<SegVialGremio />} />
+      <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio /></ProtectedRoute>}/>
 
       {/*TOUR*/}
       <Route path="/sample-ai" element={<SampleAI />} />
