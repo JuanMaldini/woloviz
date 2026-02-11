@@ -8,8 +8,23 @@ function App() {
   const location = useLocation();
   const hideFooterOn = new Set(["/sample-ai", "/example", "/samplesvg"]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
-  const layoutClass = `flex min-h-screen w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-screen overflow-hidden" : ""}`;
+  const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;
   const bodyClass = `flex min-h-0 flex-1 flex-col${shouldHideFooter ? " h-full overflow-hidden" : ""}`;
+
+  useEffect(() => {
+    if (!shouldHideFooter) {
+      return undefined;
+    }
+
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+
+    body.style.overflow = "hidden";
+
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [shouldHideFooter]);
 
   useEffect(() => {
     const body = document.body;
@@ -28,9 +43,7 @@ function App() {
     ];
     cleanupClasses.forEach((className) => body.classList.remove(className));
 
-    const resetLink = document.querySelector(
-      'link[data-marzipano="reset"]',
-    );
+    const resetLink = document.querySelector('link[data-marzipano="reset"]');
     if (resetLink?.parentNode) {
       resetLink.parentNode.removeChild(resetLink);
     }
@@ -42,7 +55,11 @@ function App() {
         <Navbar />
       </div>
       <div className={`${bodyClass} w-full`}>
-        <AppRoutes />
+        <div
+          className={`flex min-h-0 flex-1 flex-col${shouldHideFooter ? " h-full" : ""}`}
+        >
+          <AppRoutes />
+        </div>
       </div>
       {!shouldHideFooter && (
         <div className="shrink-0">
