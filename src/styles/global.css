@@ -17,3 +17,9 @@ body,
   padding: 0;
   height: 100%;
 }
+
+@media (max-width: 639px) and (orientation: portrait) {
+  .hide-on-topbar-portrait {
+    display: none;
+  }
+}
