@@ -8,13 +8,13 @@ const Projects = () => (
         to="/samplesvg"
         className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
       >
-        Seg Vial Gremio
+        Realtime Office
       </Link>
       <Link
         to="/sample-ai"
         className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
       >
-        Sample AI
+        Apartment
       </Link>
       <Link
         to="/example"
