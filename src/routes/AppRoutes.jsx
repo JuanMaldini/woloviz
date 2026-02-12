@@ -9,6 +9,7 @@ import Projects from "../pages/Projects/Projects";
 import AccessGate from "../pages/segurity/AccessGate";
 import ProtectedRoute from "./ProtectedRoute";
 import About from "../pages/About/About";
+import Playground from "../pages/Projects/Tours/playground/playground";
 
 const AppRoutes = () => {
   return (
@@ -19,6 +20,9 @@ const AppRoutes = () => {
 
       {/*SECURITY*/}
       <Route path="/security" element={<AccessGate />} />
+
+      {/*PLAYGROUND*/}
+      <Route path="/playground" element={<Playground />} />
 
       {/*INTERACTIVA APP*/}
       <Route path="/projects" element={<Projects />} />
