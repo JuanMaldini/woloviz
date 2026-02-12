@@ -16,12 +16,12 @@ const Projects = () => (
       >
         Apartment
       </Link>
-      <Link
+      {/* <Link
         to="/example"
         className="w-fit text-[15px] font-medium text-black no-underline transition-colors hover:text-slate-600"
       >
         Example
-      </Link>
+      </Link> */}
     </div>
   </div>
 );
