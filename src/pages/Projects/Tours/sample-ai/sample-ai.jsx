@@ -29,11 +29,11 @@ const data = {
         { yaw: 76, pitch: -39.3, target: "scene2" },
         { yaw: -79.3, pitch: -39.5, target: "scene3" },
         { yaw: -83.7, pitch: -22.5, target: "scene4" },
-        { yaw: -137.44656566250043, pitch: -15.54410302288399, target: "scene5"},
-        { yaw: -123.6022459805157, pitch: -36.71850384146028, target: "scene6"},
-        { yaw: -169.84819835377016, pitch: -19.12233911507805, target: "scene7",},
-        { yaw: 157.45360506549025, pitch: -16.182970890091525, target: "scene8", },
-        { yaw: 131.86112603426764, pitch: -17.201298350399053, target: "scene9", },
+        { yaw: -137.44656566250043, pitch: -15.54410302288399, target: "scene5" },
+        { yaw: -123.6022459805157, pitch: -36.71850384146028, target: "scene6" },
+        { yaw: -169.84819835377016, pitch: -19.12233911507805, target: "scene7" },
+        { yaw: 157.45360506549025, pitch: -16.182970890091525, target: "scene8" },
+        { yaw: 131.86112603426764, pitch: -17.201298350399053, target: "scene9" },
       ],
       infoHotspots: [],
     },
@@ -97,7 +97,7 @@ const data = {
         { yaw: 40.28816438988322, pitch: -17.36874125533316, target: "scene1" },
         { yaw: 52.53304877938946, pitch: -13.18578139862265, target: "scene2" },
         { yaw: 20.018597248567815, pitch: -20.124284707485618, target: "scene3" },
-        { yaw: -6.427350792947299, pitch: -21.183348165899343,  target: "scene4" },
+        { yaw: -6.427350792947299, pitch: -21.183348165899343, target: "scene4" },
         { yaw: 40.745006906348195, pitch: -29.522495115816653, target: "scene6" },
         { yaw: 104.50636072608798, pitch: -33.3487823908823, target: "scene7" },
         { yaw: 96.86297950518878, pitch: -16.54278648905028, target: "scene8" },
@@ -312,6 +312,9 @@ const SampleAI = () => {
       const sceneListElement = document.querySelector("#sceneList");
       const sceneElements = document.querySelectorAll(".scene[data-id]");
       const sceneListToggleElement = document.querySelector("#sceneListToggle");
+      const sceneListCloseElement = document.querySelector(
+        '.scene-list-close[data-action="close-scene-list"]',
+      );
       const autorotateToggleElement =
         document.querySelector("#autorotateToggle");
       const fullscreenToggleElement =
@@ -442,6 +445,12 @@ const SampleAI = () => {
 
       if (sceneListToggleElement) {
         sceneListToggleElement.onclick = toggleSceneList;
+      }
+
+      if (sceneListCloseElement && sceneListToggleElement) {
+        sceneListCloseElement.onclick = () => {
+          sceneListToggleElement.click();
+        };
       }
 
       if (!document.body.classList.contains("mobile")) {
@@ -791,8 +800,14 @@ const SampleAI = () => {
     return () => {
       disposed = true;
       const toggleEl = document.querySelector("#sceneListToggle");
+      const closeEl = document.querySelector(
+        '.scene-list-close[data-action="close-scene-list"]',
+      );
       if (toggleEl) {
         toggleEl.onclick = null;
+      }
+      if (closeEl) {
+        closeEl.onclick = null;
       }
       bodyClasses.forEach((className) => body.classList.remove(className));
       body.classList.remove("marzipano-navbar");

@@ -23,6 +23,18 @@ const MarzipanoTopBar = ({
       <div id="sceneList">
         <ul className="scenes">
           {showFloorplan && (
+            <li className="scene-list-close-item">
+              <button
+                type="button"
+                className="scene floor-plan-trigger scene-list-close"
+                data-action="close-scene-list"
+                aria-label="Cerrar menú"
+              >
+                <span className="text">Close</span>
+              </button>
+            </li>
+          )}
+          {showFloorplan && (
             <li className="floor-plan-item">
               <label
                 className="scene floor-plan-trigger"

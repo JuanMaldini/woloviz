@@ -14138,7 +14138,7 @@ Viewer.prototype._triggerIdleTimer = function() {
 };
 
 
-var defaultSwitchDuration = 1000;
+var defaultSwitchDuration = 500;
 
 function defaultTransitionUpdate(val, newScene, oldScene) {
   var layers = newScene.listLayers();

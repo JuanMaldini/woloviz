@@ -134,9 +134,11 @@ const Playground = () => {
 
       const panoElement = root.querySelector("#pano");
       const sceneNameElement = document.querySelector("#titleBar .sceneName");
-      const sceneListElement = document.querySelector("#sceneList");
       const sceneElements = document.querySelectorAll(".scene[data-id]");
       const sceneListToggleElement = document.querySelector("#sceneListToggle");
+      const sceneListCloseElement = document.querySelector(
+        '.scene-list-close[data-action="close-scene-list"]',
+      );
       const autorotateToggleElement =
         document.querySelector("#autorotateToggle");
       const fullscreenToggleElement =
@@ -273,6 +275,12 @@ const Playground = () => {
         showSceneList();
       } else {
         hideSceneList();
+      }
+
+      if (sceneListCloseElement && sceneListToggleElement) {
+        sceneListCloseElement.onclick = () => {
+          sceneListToggleElement.click();
+        };
       }
 
       scenes.forEach((scene) => {
@@ -616,8 +624,14 @@ const Playground = () => {
     return () => {
       disposed = true;
       const toggleEl = document.querySelector("#sceneListToggle");
+      const closeEl = document.querySelector(
+        '.scene-list-close[data-action="close-scene-list"]',
+      );
       if (toggleEl) {
         toggleEl.onclick = null;
+      }
+      if (closeEl) {
+        closeEl.onclick = null;
       }
       bodyClasses.forEach((className) => body.classList.remove(className));
       body.classList.remove("marzipano-navbar");

@@ -610,7 +610,7 @@ Viewer.prototype._triggerIdleTimer = function() {
 };
 
 
-var defaultSwitchDuration = 1000;
+var defaultSwitchDuration = 1000; {/* NOT THIS VALUE - USE FROM - marzipano.js */}
 
 function defaultTransitionUpdate(val, newScene, oldScene) {
   var layers = newScene.listLayers();
