@@ -636,7 +636,7 @@ body.single-scene #sceneListToggle {
   height: 30px;
   margin-left: -15px;
   margin-top: -15px;
-  opacity: 0.9;
+  opacity: 1;
   -webkit-transition: opacity 0.2s;
   transition: opacity 0.2s;
 }
@@ -1116,6 +1116,14 @@ body.single-scene #sceneListToggle {
   transition:
     opacity 0.2s ease-in-out,
     visibility 0s 0.2s;
+}
+
+body.playground-floorplan-contained .floor-plan-modal {
+  inset: auto !important;
+  top: var(--playground-floorplan-top, 0px) !important;
+  left: var(--playground-floorplan-left, 0px) !important;
+  width: var(--playground-floorplan-width, 100vw);
+  height: var(--playground-floorplan-height, 100vh);
 }
 
 .floor-plan-panel {

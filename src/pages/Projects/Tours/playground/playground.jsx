@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { IoInformationCircleOutline } from "react-icons/io5";
 import bowser from "bowser";
 import "../style.css";
 import MarzipanoTopBar from "../components/MarzipanoTopBar";
 import Form from "./Form";
+import TourInfoModal from "./TourInfoModal";
 import { data, floorplanScenePositions } from "./data";
+
+const PRESERVE_CURRENT_VIEW_STORAGE_KEY = "playground:preserve-current-view";
+const RUNTIME_VIEW_STATE_STORAGE_KEY = "playground:current-view-state:v1";
+const AUTOROTATE_ENABLED_STORAGE_KEY = "playground:autorotate-enabled";
+const VIEW_CONTROL_BUTTONS_STORAGE_KEY = "playground:view-control-buttons";
 
 const Playground = () => {
   const rootRef = useRef(null);
   const [topBarTarget, setTopBarTarget] = useState(null);
+  const [isTourInfoModalOpen, setIsTourInfoModalOpen] = useState(false);
 
   const degToRad = (deg) => (deg * Math.PI) / 180;
   const hotspotPitchSign = -1;
@@ -48,30 +56,63 @@ const Playground = () => {
     }
 
     const body = document.body;
+    body.classList.add("playground-floorplan-contained");
+
+    const readBooleanFromSession = (key, fallback) => {
+      if (typeof window === "undefined") {
+        return fallback;
+      }
+      try {
+        const saved = window.sessionStorage.getItem(key);
+        if (saved === "1" || saved === "0") {
+          return saved === "1";
+        }
+      } catch {}
+      return fallback;
+    };
+
+    const initialAutorotateEnabled = readBooleanFromSession(
+      AUTOROTATE_ENABLED_STORAGE_KEY,
+      Boolean(data.settings.autorotateEnabled),
+    );
+    const initialViewControlButtonsEnabled = readBooleanFromSession(
+      VIEW_CONTROL_BUTTONS_STORAGE_KEY,
+      Boolean(data.settings.viewControlButtons),
+    );
+
+    const updateFloorplanBounds = () => {
+      const rect = root.getBoundingClientRect();
+      body.style.setProperty("--playground-floorplan-top", `${rect.top}px`);
+      body.style.setProperty("--playground-floorplan-left", `${rect.left}px`);
+      body.style.setProperty("--playground-floorplan-width", `${rect.width}px`);
+      body.style.setProperty(
+        "--playground-floorplan-height",
+        `${rect.height}px`,
+      );
+    };
+
+    updateFloorplanBounds();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateFloorplanBounds();
+    });
+    resizeObserver.observe(root);
+    window.addEventListener("resize", updateFloorplanBounds);
+    window.addEventListener("scroll", updateFloorplanBounds, { passive: true });
+
     const bodyClasses = [];
-    if (data.scenes.length > 1) {
+    const shouldShowSceneMenu =
+      data.scenes.length > 1 || Boolean(data.floorplanImageUrl);
+    if (shouldShowSceneMenu) {
       bodyClasses.push("multiple-scenes");
     } else {
       bodyClasses.push("single-scene");
     }
-    if (data.settings.viewControlButtons) {
+    if (initialViewControlButtonsEnabled) {
       bodyClasses.push("view-control-buttons");
     }
     bodyClasses.forEach((className) => body.classList.add(className));
     body.classList.add("marzipano-navbar");
-
-    const ensureLink = (href, id) => {
-      const existing = document.querySelector(`link[data-marzipano="${id}"]`);
-      if (existing) {
-        return existing;
-      }
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.dataset.marzipano = id;
-      document.head.appendChild(link);
-      return link;
-    };
 
     const loadScriptOnce = (src, id) =>
       new Promise((resolve, reject) => {
@@ -103,10 +144,24 @@ const Playground = () => {
         document.head.appendChild(script);
       });
 
-    ensureLink("https://www.marzipano.net/demos/common/reset.css", "reset");
+    const resetLink = document.querySelector('link[data-marzipano="reset"]');
+    if (resetLink?.parentNode) {
+      resetLink.parentNode.removeChild(resetLink);
+    }
 
     let disposed = false;
     const infoModals = [];
+    let infoHotspotPickRequest = null;
+    let linkHotspotPickRequest = null;
+    let onInfoPickStart = null;
+    let onLinkPickStart = null;
+    let onPanoClickForInfoPick = null;
+    let onPanoClickForLinkPick = null;
+    let onPanoPointerUpForViewSave = null;
+    let onPanoWheelForViewSave = null;
+    let onPreserveCurrentViewChanged = null;
+    let onViewerSettingsChanged = null;
+    const viewChangeListeners = [];
 
     const init = async () => {
       try {
@@ -126,6 +181,7 @@ const Playground = () => {
 
       const Marzipano = window.Marzipano;
       const screenfull = window.screenfull;
+      let preserveCurrentViewEnabled = false;
 
       if (!Marzipano) {
         console.error("Marzipano is not available on window");
@@ -134,6 +190,7 @@ const Playground = () => {
 
       const panoElement = root.querySelector("#pano");
       const sceneNameElement = document.querySelector("#titleBar .sceneName");
+      const sceneListElement = document.querySelector("#sceneList");
       const sceneElements = document.querySelectorAll(".scene[data-id]");
       const sceneListToggleElement = document.querySelector("#sceneListToggle");
       const sceneListCloseElement = document.querySelector(
@@ -147,6 +204,327 @@ const Playground = () => {
       if (!panoElement) {
         return;
       }
+
+      const readPreserveCurrentViewPreference = () => {
+        if (typeof window === "undefined") {
+          return false;
+        }
+        try {
+          return (
+            window.sessionStorage.getItem(PRESERVE_CURRENT_VIEW_STORAGE_KEY) ===
+            "1"
+          );
+        } catch {
+          return false;
+        }
+      };
+
+      const clearRuntimeViewState = () => {
+        if (typeof window === "undefined") {
+          return;
+        }
+        try {
+          window.sessionStorage.removeItem(RUNTIME_VIEW_STATE_STORAGE_KEY);
+        } catch {}
+      };
+
+      const saveRuntimeViewState = (scene, parameters) => {
+        preserveCurrentViewEnabled = readPreserveCurrentViewPreference();
+        if (!preserveCurrentViewEnabled || !scene?.data?.id) {
+          return;
+        }
+
+        const fromArgs = parameters ?? {};
+        const fromView = scene.view?.parameters?.() ?? {};
+        const fromInitial = {
+          yaw: degToRad(scene.data?.initialViewParameters?.yaw ?? 0),
+          pitch: degToRad(scene.data?.initialViewParameters?.pitch ?? 0),
+          fov: degToRad(scene.data?.initialViewParameters?.fov ?? 110),
+        };
+
+        const yawRad = Number.isFinite(fromArgs.yaw)
+          ? fromArgs.yaw
+          : Number.isFinite(fromView.yaw)
+            ? fromView.yaw
+            : fromInitial.yaw;
+        const pitchRad = Number.isFinite(fromArgs.pitch)
+          ? fromArgs.pitch
+          : Number.isFinite(fromView.pitch)
+            ? fromView.pitch
+            : fromInitial.pitch;
+        const fovRad = Number.isFinite(fromArgs.fov)
+          ? fromArgs.fov
+          : Number.isFinite(fromView.fov)
+            ? fromView.fov
+            : fromInitial.fov;
+
+        const yaw = Number(((yawRad * 180) / Math.PI).toFixed(6));
+        const pitch = Number(((pitchRad * 180) / Math.PI).toFixed(6));
+        const fov = Number(((fovRad * 180) / Math.PI).toFixed(6));
+
+        if (![yaw, pitch, fov].every((value) => Number.isFinite(value))) {
+          return;
+        }
+
+        const snapshot = {
+          version: 1,
+          sceneId: String(scene.data.id),
+          yaw,
+          pitch,
+          fov,
+          updatedAt: Date.now(),
+        };
+
+        try {
+          window.sessionStorage.setItem(
+            RUNTIME_VIEW_STATE_STORAGE_KEY,
+            JSON.stringify(snapshot),
+          );
+        } catch {}
+      };
+
+      const readRuntimeViewState = () => {
+        preserveCurrentViewEnabled = readPreserveCurrentViewPreference();
+        if (!preserveCurrentViewEnabled) {
+          return null;
+        }
+
+        try {
+          const raw = window.sessionStorage.getItem(
+            RUNTIME_VIEW_STATE_STORAGE_KEY,
+          );
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw);
+          const sceneId = String(parsed?.sceneId ?? "").trim();
+          const yaw = Number(parsed?.yaw);
+          const pitch = Number(parsed?.pitch);
+          const fov = Number(parsed?.fov);
+
+          if (
+            !sceneId ||
+            ![yaw, pitch, fov].every((value) => Number.isFinite(value))
+          ) {
+            clearRuntimeViewState();
+            return null;
+          }
+
+          return {
+            sceneId,
+            yaw,
+            pitch,
+            fov,
+          };
+        } catch {
+          clearRuntimeViewState();
+          return null;
+        }
+      };
+
+      preserveCurrentViewEnabled = readPreserveCurrentViewPreference();
+
+      onPreserveCurrentViewChanged = (event) => {
+        const enabled = Boolean(event?.detail?.enabled);
+        preserveCurrentViewEnabled = enabled;
+        if (!enabled) {
+          clearRuntimeViewState();
+        }
+      };
+
+      window.addEventListener(
+        "playground:preserve-current-view-changed",
+        onPreserveCurrentViewChanged,
+      );
+
+      onPanoPointerUpForViewSave = () => {
+        if (activeScene) {
+          saveRuntimeViewState(activeScene);
+        }
+      };
+      onPanoWheelForViewSave = () => {
+        if (activeScene) {
+          saveRuntimeViewState(activeScene);
+        }
+      };
+
+      panoElement.addEventListener(
+        "pointerup",
+        onPanoPointerUpForViewSave,
+        true,
+      );
+      panoElement.addEventListener("wheel", onPanoWheelForViewSave, {
+        capture: true,
+        passive: true,
+      });
+
+      const dispatchInfoPickResult = (detail) => {
+        window.dispatchEvent(
+          new CustomEvent("playground:infohotspot-pick-result", { detail }),
+        );
+      };
+
+      const dispatchLinkPickResult = (detail) => {
+        window.dispatchEvent(
+          new CustomEvent("playground:linkhotspot-pick-result", { detail }),
+        );
+      };
+
+      const setPickCursor = () => {
+        panoElement.style.cursor =
+          infoHotspotPickRequest || linkHotspotPickRequest ? "crosshair" : "";
+      };
+
+      onInfoPickStart = (event) => {
+        const detail = event?.detail ?? {};
+        const sceneIndex = Number(detail.sceneIndex);
+        const hotspotIndex = Number(detail.hotspotIndex);
+        if (!Number.isInteger(sceneIndex) || !Number.isInteger(hotspotIndex)) {
+          return;
+        }
+        infoHotspotPickRequest = {
+          sceneIndex,
+          hotspotIndex,
+        };
+        linkHotspotPickRequest = null;
+        setPickCursor();
+      };
+
+      onLinkPickStart = (event) => {
+        const detail = event?.detail ?? {};
+        const sceneIndex = Number(detail.sceneIndex);
+        const hotspotIndex = Number(detail.hotspotIndex);
+        if (!Number.isInteger(sceneIndex) || !Number.isInteger(hotspotIndex)) {
+          return;
+        }
+        linkHotspotPickRequest = {
+          sceneIndex,
+          hotspotIndex,
+        };
+        infoHotspotPickRequest = null;
+        setPickCursor();
+      };
+
+      onPanoClickForInfoPick = (event) => {
+        if (!infoHotspotPickRequest) {
+          return;
+        }
+
+        const blockedTarget = event.target?.closest?.(
+          ".hotspot, .info-hotspot-modal, #titleBar, #sceneList, .viewControlButton",
+        );
+
+        if (blockedTarget) {
+          dispatchInfoPickResult({
+            ...infoHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const rect = panoElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || !activeScene?.view) {
+          dispatchInfoPickResult({
+            ...infoHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const viewCoords = activeScene.view.screenToCoordinates({
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+
+        if (
+          !viewCoords ||
+          !Number.isFinite(viewCoords.yaw) ||
+          !Number.isFinite(viewCoords.pitch)
+        ) {
+          dispatchInfoPickResult({
+            ...infoHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const result = {
+          ...infoHotspotPickRequest,
+          status: "ok",
+          yaw: Number(((viewCoords.yaw * 180) / Math.PI).toFixed(6)),
+          pitch: Number(((-viewCoords.pitch * 180) / Math.PI).toFixed(6)),
+        };
+
+        infoHotspotPickRequest = null;
+        setPickCursor();
+        dispatchInfoPickResult(result);
+      };
+
+      onPanoClickForLinkPick = (event) => {
+        if (!linkHotspotPickRequest) {
+          return;
+        }
+
+        const blockedTarget = event.target?.closest?.(
+          ".hotspot, .info-hotspot-modal, #titleBar, #sceneList, .viewControlButton",
+        );
+
+        if (blockedTarget) {
+          dispatchLinkPickResult({
+            ...linkHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const rect = panoElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || !activeScene?.view) {
+          dispatchLinkPickResult({
+            ...linkHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const viewCoords = activeScene.view.screenToCoordinates({
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+
+        if (
+          !viewCoords ||
+          !Number.isFinite(viewCoords.yaw) ||
+          !Number.isFinite(viewCoords.pitch)
+        ) {
+          dispatchLinkPickResult({
+            ...linkHotspotPickRequest,
+            status: "fail",
+          });
+          return;
+        }
+
+        const result = {
+          ...linkHotspotPickRequest,
+          status: "ok",
+          yaw: Number(((viewCoords.yaw * 180) / Math.PI).toFixed(6)),
+          pitch: Number(((-viewCoords.pitch * 180) / Math.PI).toFixed(6)),
+        };
+
+        linkHotspotPickRequest = null;
+        setPickCursor();
+        dispatchLinkPickResult(result);
+      };
+
+      window.addEventListener(
+        "playground:infohotspot-pick-start",
+        onInfoPickStart,
+      );
+      window.addEventListener(
+        "playground:linkhotspot-pick-start",
+        onLinkPickStart,
+      );
+      panoElement.addEventListener("click", onPanoClickForInfoPick, true);
+      panoElement.addEventListener("click", onPanoClickForLinkPick, true);
 
       if (window.matchMedia) {
         const mql = window.matchMedia(
@@ -184,6 +562,7 @@ const Playground = () => {
       };
 
       const viewer = new Marzipano.Viewer(panoElement, viewerOpts);
+      let activeScene = null;
 
       const scenes = data.scenes.map((sceneData) => {
         const source = Marzipano.ImageUrlSource.fromString(sceneData.imageUrl);
@@ -213,19 +592,45 @@ const Playground = () => {
           pinFirstLevel: true,
         });
 
-        sceneData.linkHotspots.forEach((hotspot) => {
+        const onViewChange = () => {
+          if (activeScene === scene) {
+            saveRuntimeViewState(scene);
+          }
+        };
+        view.addEventListener("change", onViewChange);
+        viewChangeListeners.push({ view, handler: onViewChange });
+
+        sceneData.linkHotspots.forEach((hotspot, hotspotIndex) => {
           const element = createLinkHotspotElement(hotspot);
-          scene.hotspotContainer().createHotspot(element, {
-            yaw: degToRad(hotspot.yaw),
-            pitch: degToRad(hotspot.pitch * hotspotPitchSign),
+          const hotspotHandle = scene
+            .hotspotContainer()
+            .createHotspot(element, {
+              yaw: degToRad(hotspot.yaw),
+              pitch: degToRad(hotspot.pitch * hotspotPitchSign),
+            });
+          attachLinkHotspotDrag({
+            wrapper: element,
+            hotspotHandle,
+            sceneView: view,
+            sceneId: sceneData.id,
+            hotspotIndex,
           });
         });
 
-        sceneData.infoHotspots.forEach((hotspot) => {
+        sceneData.infoHotspots.forEach((hotspot, hotspotIndex) => {
           const element = createInfoHotspotElement(hotspot);
-          scene.hotspotContainer().createHotspot(element, {
-            yaw: degToRad(hotspot.yaw),
-            pitch: degToRad(hotspot.pitch * hotspotPitchSign),
+          const hotspotHandle = scene
+            .hotspotContainer()
+            .createHotspot(element, {
+              yaw: degToRad(hotspot.yaw),
+              pitch: degToRad(hotspot.pitch * hotspotPitchSign),
+            });
+          attachInfoHotspotDrag({
+            wrapper: element,
+            hotspotHandle,
+            sceneView: view,
+            sceneId: sceneData.id,
+            hotspotIndex,
           });
         });
 
@@ -241,7 +646,7 @@ const Playground = () => {
         targetPitch: 0,
         targetFov: Math.PI / 2,
       });
-      let autorotateEnabled = Boolean(data.settings.autorotateEnabled);
+      let autorotateEnabled = initialAutorotateEnabled;
 
       autorotateToggleElement?.addEventListener("click", toggleAutorotate);
 
@@ -304,7 +709,7 @@ const Playground = () => {
       const viewInElement = root.querySelector("#viewIn");
       const viewOutElement = root.querySelector("#viewOut");
 
-      if (!data.settings.viewControlButtons) {
+      const applyViewControlButtonsVisibility = (enabled) => {
         [
           viewUpElement,
           viewDownElement,
@@ -314,10 +719,18 @@ const Playground = () => {
           viewOutElement,
         ].forEach((el) => {
           if (el) {
-            el.style.display = "none";
+            el.style.display = enabled ? "" : "none";
           }
         });
-      }
+
+        if (enabled) {
+          body.classList.add("view-control-buttons");
+        } else {
+          body.classList.remove("view-control-buttons");
+        }
+      };
+
+      applyViewControlButtonsVisibility(initialViewControlButtonsEnabled);
 
       const velocity = 0.7;
       const friction = 3;
@@ -412,16 +825,17 @@ const Playground = () => {
         };
       };
 
-      let activeScene = null;
-
-      function switchScene(scene) {
+      function switchScene(scene, forcedParameters = null) {
         stopAutorotate();
-        const nextParameters = activeScene
-          ? activeScene.view.parameters()
-          : getInitialViewParameters(scene);
+        const nextParameters =
+          forcedParameters ||
+          (activeScene
+            ? activeScene.view.parameters()
+            : getInitialViewParameters(scene));
         scene.view.setParameters(nextParameters);
         scene.scene.switchTo();
         activeScene = scene;
+        saveRuntimeViewState(scene, nextParameters);
         startAutorotate();
         updateSceneName(scene);
         updateSceneList(scene);
@@ -483,6 +897,30 @@ const Playground = () => {
         }
       }
 
+      onViewerSettingsChanged = (event) => {
+        const detail = event?.detail ?? {};
+
+        if (typeof detail.autorotateEnabled === "boolean") {
+          autorotateEnabled = detail.autorotateEnabled;
+          if (autorotateEnabled) {
+            autorotateToggleElement?.classList.add("enabled");
+            startAutorotate();
+          } else {
+            autorotateToggleElement?.classList.remove("enabled");
+            stopAutorotate();
+          }
+        }
+
+        if (typeof detail.viewControlButtons === "boolean") {
+          applyViewControlButtonsVisibility(detail.viewControlButtons);
+        }
+      };
+
+      window.addEventListener(
+        "playground:viewer-settings-changed",
+        onViewerSettingsChanged,
+      );
+
       function createLinkHotspotElement(hotspot) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("hotspot", "link-hotspot");
@@ -508,6 +946,150 @@ const Playground = () => {
         wrapper.appendChild(tooltip);
 
         return wrapper;
+      }
+
+      function attachLinkHotspotDrag({
+        wrapper,
+        hotspotHandle,
+        sceneView,
+        sceneId,
+        hotspotIndex,
+      }) {
+        const dragHandle = wrapper.querySelector(".link-hotspot-icon");
+        if (!dragHandle) {
+          return;
+        }
+
+        dragHandle.style.cursor = "grab";
+        dragHandle.style.touchAction = "none";
+
+        const dragState = {
+          active: false,
+          pointerId: null,
+          startClientX: 0,
+          startClientY: 0,
+          hasDragged: false,
+          suppressClick: false,
+        };
+        const DRAG_START_DISTANCE_PX = 12;
+
+        const updateFromEvent = (event, shouldCommit) => {
+          const rect = panoElement.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) {
+            return false;
+          }
+
+          const viewCoords = sceneView.screenToCoordinates({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+          });
+
+          if (
+            !viewCoords ||
+            !Number.isFinite(viewCoords.yaw) ||
+            !Number.isFinite(viewCoords.pitch)
+          ) {
+            return false;
+          }
+
+          hotspotHandle.setPosition({
+            yaw: viewCoords.yaw,
+            pitch: viewCoords.pitch,
+          });
+
+          if (shouldCommit) {
+            window.dispatchEvent(
+              new CustomEvent("playground:linkhotspot-position-commit", {
+                detail: {
+                  sceneId,
+                  hotspotIndex,
+                  yaw: Number(((viewCoords.yaw * 180) / Math.PI).toFixed(6)),
+                  pitch: Number(
+                    ((-viewCoords.pitch * 180) / Math.PI).toFixed(6),
+                  ),
+                },
+              }),
+            );
+          }
+
+          return true;
+        };
+
+        const endDrag = () => {
+          if (!dragState.active) {
+            return;
+          }
+          dragState.active = false;
+          dragState.pointerId = null;
+          dragHandle.style.cursor = "grab";
+        };
+
+        dragHandle.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          dragState.active = true;
+          dragState.pointerId = event.pointerId;
+          dragState.startClientX = event.clientX;
+          dragState.startClientY = event.clientY;
+          dragState.hasDragged = false;
+          dragState.suppressClick = false;
+          dragHandle.style.cursor = "grabbing";
+          dragHandle.setPointerCapture?.(event.pointerId);
+        });
+
+        dragHandle.addEventListener("pointermove", (event) => {
+          if (!dragState.active || event.pointerId !== dragState.pointerId) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!dragState.hasDragged) {
+            const movedX = Math.abs(event.clientX - dragState.startClientX);
+            const movedY = Math.abs(event.clientY - dragState.startClientY);
+            if (
+              movedX < DRAG_START_DISTANCE_PX &&
+              movedY < DRAG_START_DISTANCE_PX
+            ) {
+              return;
+            }
+            dragState.hasDragged = true;
+          }
+
+          dragState.suppressClick = true;
+          updateFromEvent(event, false);
+        });
+
+        dragHandle.addEventListener("pointerup", (event) => {
+          if (!dragState.active || event.pointerId !== dragState.pointerId) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          if (dragState.hasDragged) {
+            updateFromEvent(event, true);
+          }
+          if (dragHandle.hasPointerCapture?.(event.pointerId)) {
+            dragHandle.releasePointerCapture(event.pointerId);
+          }
+          endDrag();
+        });
+
+        dragHandle.addEventListener("pointercancel", () => {
+          endDrag();
+        });
+
+        dragHandle.addEventListener("click", (event) => {
+          if (!dragState.suppressClick) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          dragState.suppressClick = false;
+        });
       }
 
       function createInfoHotspotElement(hotspot) {
@@ -572,6 +1154,150 @@ const Playground = () => {
         return wrapper;
       }
 
+      function attachInfoHotspotDrag({
+        wrapper,
+        hotspotHandle,
+        sceneView,
+        sceneId,
+        hotspotIndex,
+      }) {
+        const dragHandle = wrapper.querySelector(".info-hotspot-icon-wrapper");
+        if (!dragHandle) {
+          return;
+        }
+
+        dragHandle.style.cursor = "grab";
+        dragHandle.style.touchAction = "none";
+
+        const dragState = {
+          active: false,
+          pointerId: null,
+          startClientX: 0,
+          startClientY: 0,
+          hasDragged: false,
+          suppressClick: false,
+        };
+        const DRAG_START_DISTANCE_PX = 12;
+
+        const updateFromEvent = (event, shouldCommit) => {
+          const rect = panoElement.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) {
+            return false;
+          }
+
+          const viewCoords = sceneView.screenToCoordinates({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+          });
+
+          if (
+            !viewCoords ||
+            !Number.isFinite(viewCoords.yaw) ||
+            !Number.isFinite(viewCoords.pitch)
+          ) {
+            return false;
+          }
+
+          hotspotHandle.setPosition({
+            yaw: viewCoords.yaw,
+            pitch: viewCoords.pitch,
+          });
+
+          if (shouldCommit) {
+            window.dispatchEvent(
+              new CustomEvent("playground:infohotspot-position-commit", {
+                detail: {
+                  sceneId,
+                  hotspotIndex,
+                  yaw: Number(((viewCoords.yaw * 180) / Math.PI).toFixed(6)),
+                  pitch: Number(
+                    ((-viewCoords.pitch * 180) / Math.PI).toFixed(6),
+                  ),
+                },
+              }),
+            );
+          }
+
+          return true;
+        };
+
+        const endDrag = () => {
+          if (!dragState.active) {
+            return;
+          }
+          dragState.active = false;
+          dragState.pointerId = null;
+          dragHandle.style.cursor = "grab";
+        };
+
+        dragHandle.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          dragState.active = true;
+          dragState.pointerId = event.pointerId;
+          dragState.startClientX = event.clientX;
+          dragState.startClientY = event.clientY;
+          dragState.hasDragged = false;
+          dragState.suppressClick = false;
+          dragHandle.style.cursor = "grabbing";
+          dragHandle.setPointerCapture?.(event.pointerId);
+        });
+
+        dragHandle.addEventListener("pointermove", (event) => {
+          if (!dragState.active || event.pointerId !== dragState.pointerId) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!dragState.hasDragged) {
+            const movedX = Math.abs(event.clientX - dragState.startClientX);
+            const movedY = Math.abs(event.clientY - dragState.startClientY);
+            if (
+              movedX < DRAG_START_DISTANCE_PX &&
+              movedY < DRAG_START_DISTANCE_PX
+            ) {
+              return;
+            }
+            dragState.hasDragged = true;
+          }
+
+          dragState.suppressClick = true;
+          updateFromEvent(event, false);
+        });
+
+        dragHandle.addEventListener("pointerup", (event) => {
+          if (!dragState.active || event.pointerId !== dragState.pointerId) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          if (dragState.hasDragged) {
+            updateFromEvent(event, true);
+          }
+          if (dragHandle.hasPointerCapture?.(event.pointerId)) {
+            dragHandle.releasePointerCapture(event.pointerId);
+          }
+          endDrag();
+        });
+
+        dragHandle.addEventListener("pointercancel", () => {
+          endDrag();
+        });
+
+        dragHandle.addEventListener("click", (event) => {
+          if (!dragState.suppressClick) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          dragState.suppressClick = false;
+        });
+      }
+
       function stopTouchAndScrollEventPropagation(element) {
         const eventList = [
           "touchstart",
@@ -616,13 +1342,70 @@ const Playground = () => {
         stopAutorotate();
       }
 
-      switchScene(scenes[0]);
+      const runtimeViewState = readRuntimeViewState();
+      const runtimeScene = runtimeViewState
+        ? findSceneById(runtimeViewState.sceneId)
+        : null;
+
+      if (runtimeScene && runtimeViewState) {
+        switchScene(runtimeScene, {
+          yaw: degToRad(runtimeViewState.yaw),
+          pitch: degToRad(runtimeViewState.pitch),
+          fov: degToRad(runtimeViewState.fov),
+        });
+      } else {
+        switchScene(scenes[0]);
+      }
     };
 
     init();
 
     return () => {
       disposed = true;
+      if (onInfoPickStart) {
+        window.removeEventListener(
+          "playground:infohotspot-pick-start",
+          onInfoPickStart,
+        );
+      }
+      if (onLinkPickStart) {
+        window.removeEventListener(
+          "playground:linkhotspot-pick-start",
+          onLinkPickStart,
+        );
+      }
+      if (onPreserveCurrentViewChanged) {
+        window.removeEventListener(
+          "playground:preserve-current-view-changed",
+          onPreserveCurrentViewChanged,
+        );
+      }
+      if (onViewerSettingsChanged) {
+        window.removeEventListener(
+          "playground:viewer-settings-changed",
+          onViewerSettingsChanged,
+        );
+      }
+      viewChangeListeners.forEach(({ view, handler }) => {
+        view.removeEventListener("change", handler);
+      });
+      const panoElement = root.querySelector("#pano");
+      if (onPanoClickForInfoPick) {
+        panoElement?.removeEventListener("click", onPanoClickForInfoPick, true);
+      }
+      if (onPanoClickForLinkPick) {
+        panoElement?.removeEventListener("click", onPanoClickForLinkPick, true);
+      }
+      if (onPanoPointerUpForViewSave) {
+        panoElement?.removeEventListener(
+          "pointerup",
+          onPanoPointerUpForViewSave,
+          true,
+        );
+      }
+      if (onPanoWheelForViewSave) {
+        panoElement?.removeEventListener("wheel", onPanoWheelForViewSave, true);
+      }
       const toggleEl = document.querySelector("#sceneListToggle");
       const closeEl = document.querySelector(
         '.scene-list-close[data-action="close-scene-list"]',
@@ -635,6 +1418,14 @@ const Playground = () => {
       }
       bodyClasses.forEach((className) => body.classList.remove(className));
       body.classList.remove("marzipano-navbar");
+      body.classList.remove("playground-floorplan-contained");
+      body.style.removeProperty("--playground-floorplan-top");
+      body.style.removeProperty("--playground-floorplan-left");
+      body.style.removeProperty("--playground-floorplan-width");
+      body.style.removeProperty("--playground-floorplan-height");
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateFloorplanBounds);
+      window.removeEventListener("scroll", updateFloorplanBounds);
       infoModals.forEach((modal) => modal.remove());
     };
   }, [assetUrls]);
@@ -649,6 +1440,7 @@ const Playground = () => {
                 scenes={data.scenes}
                 assetUrls={assetUrls}
                 floorplanPositions={floorplanScenePositions}
+                enableFloorplanMarkerDrag
               />,
               topBarTarget,
             )}
@@ -708,9 +1500,19 @@ const Playground = () => {
       <aside className="w-[340px] overflow-hidden transition-all duration-300 ease-in-out max-md:h-auto max-md:max-h-[45vh] max-md:w-full">
         <div className="relative flex h-full w-full flex-col overflow-hidden bg-slate-100 text-slate-900 max-[600px]:text-[0.78rem]">
           <div className="flex items-baseline justify-between gap-2 border-b border-black/10 bg-slate-200 px-4 py-3 text-[0.95rem] max-[900px]:px-3 max-[900px]:py-2">
-            <strong className="text-sm font-bold tracking-wide text-slate-700">
-              Build your tour
-            </strong>
+            <div className="flex items-center gap-2">
+              <strong className="text-sm font-bold tracking-wide text-slate-700">
+                Build your tour
+              </strong>
+              <button
+                type="button"
+                onClick={() => setIsTourInfoModalOpen(true)}
+                aria-label="Open tour information"
+                className="text-slate-600 transition-colors hover:text-slate-900"
+              >
+                <IoInformationCircleOutline className="text-lg" />
+              </button>
+            </div>
           </div>
           <Form
             initialData={data}
@@ -719,6 +1521,10 @@ const Playground = () => {
           />
         </div>
       </aside>
+      <TourInfoModal
+        open={isTourInfoModalOpen}
+        onClose={() => setIsTourInfoModalOpen(false)}
+      />
     </div>
   );
 };
