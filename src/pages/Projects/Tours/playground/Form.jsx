@@ -545,6 +545,7 @@ export default function Form({
   initialData,
   initialFloorplanPositions,
   initialFloorplanImageUrl = "",
+  onRuntimeDataChange,
 }) {
   const isProduction = import.meta.env.PROD;
   const autoWriteTimerRef = useRef(null);
@@ -713,6 +714,56 @@ export default function Form({
       viewControlButtons,
     ],
   );
+
+  const runtimeViewerData = useMemo(
+    () => ({
+      name: tourName,
+      floorplanImageUrl,
+      settings: {
+        mouseViewMode: SETTINGS_DEFAULTS.mouseViewMode,
+        autorotateEnabled,
+        fullscreenButton: SETTINGS_DEFAULTS.fullscreenButton,
+        viewControlButtons,
+      },
+      scenes: derivedScenes.map((scene, index) => ({
+        ...scene,
+        linkHotspots: (hotspotsBySceneIndex[index]?.linkHotspots ?? []).map(
+          (hotspot) => ({
+            yaw: toNumberOr(hotspot.yaw, 0),
+            pitch: toNumberOr(hotspot.pitch, 0),
+            target: String(hotspot.target ?? "").trim(),
+          }),
+        ),
+        infoHotspots: (hotspotsBySceneIndex[index]?.infoHotspots ?? []).map(
+          (hotspot) => ({
+            yaw: toNumberOr(hotspot.yaw, 0),
+            pitch: toNumberOr(hotspot.pitch, 0),
+            title: String(hotspot.title ?? "").trim() || "title",
+            text: String(hotspot.text ?? "").trim(),
+          }),
+        ),
+      })),
+    }),
+    [
+      tourName,
+      floorplanImageUrl,
+      autorotateEnabled,
+      viewControlButtons,
+      derivedScenes,
+      hotspotsBySceneIndex,
+    ],
+  );
+
+  useEffect(() => {
+    if (typeof onRuntimeDataChange !== "function") {
+      return;
+    }
+
+    onRuntimeDataChange({
+      data: runtimeViewerData,
+      floorplanPositions,
+    });
+  }, [onRuntimeDataChange, runtimeViewerData, floorplanPositions]);
 
   const resolveSceneImageAssetKey = (sceneIndex, sceneImageUrl, assets) => {
     if (!String(sceneImageUrl ?? "").startsWith("blob:")) {

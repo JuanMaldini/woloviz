@@ -17,34 +17,48 @@ const Playground = () => {
   const rootRef = useRef(null);
   const [topBarTarget, setTopBarTarget] = useState(null);
   const [isTourInfoModalOpen, setIsTourInfoModalOpen] = useState(false);
+  const [runtimeData, setRuntimeData] = useState(data);
+  const [runtimeFloorplanPositions, setRuntimeFloorplanPositions] =
+    useState(floorplanScenePositions);
+
+  const activeData = runtimeData ?? data;
+  const activeFloorplanPositions =
+    runtimeFloorplanPositions ?? floorplanScenePositions;
 
   const degToRad = (deg) => (deg * Math.PI) / 180;
   const hotspotPitchSign = -1;
 
   const assetUrls = useMemo(
-    () => ({
-      play: new URL("../imgButtons/play.png", import.meta.url).href,
-      pause: new URL("../imgButtons/pause.png", import.meta.url).href,
-      fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url).href,
-      windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
-      expand: new URL("../imgButtons/expand.png", import.meta.url).href,
-      collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
-      up: new URL("../imgButtons/up.png", import.meta.url).href,
-      down: new URL("../imgButtons/down.png", import.meta.url).href,
-      left: new URL("../imgButtons/left.png", import.meta.url).href,
-      right: new URL("../imgButtons/right.png", import.meta.url).href,
-      plus: new URL("../imgButtons/plus.png", import.meta.url).href,
-      minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-      link: new URL("../imgButtons/location.png", import.meta.url).href,
-      location: new URL("../imgButtons/location.png", import.meta.url).href,
-      floorplan: new URL(
-        data.floorplanImageUrl || "/projects/Sampleai/Floorplan.png",
-        import.meta.url,
-      ).href,
-      info: new URL("../imgButtons/info.png", import.meta.url).href,
-      close: new URL("../imgButtons/close.png", import.meta.url).href,
-    }),
-    [],
+    () => {
+      const floorplanSource =
+        String(activeData?.floorplanImageUrl ?? "") ||
+        "/projects/Sampleai/Floorplan.png";
+      const floorplan = floorplanSource.startsWith("blob:")
+        ? floorplanSource
+        : new URL(floorplanSource, import.meta.url).href;
+
+      return {
+        play: new URL("../imgButtons/play.png", import.meta.url).href,
+        pause: new URL("../imgButtons/pause.png", import.meta.url).href,
+        fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url)
+          .href,
+        windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
+        expand: new URL("../imgButtons/expand.png", import.meta.url).href,
+        collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
+        up: new URL("../imgButtons/up.png", import.meta.url).href,
+        down: new URL("../imgButtons/down.png", import.meta.url).href,
+        left: new URL("../imgButtons/left.png", import.meta.url).href,
+        right: new URL("../imgButtons/right.png", import.meta.url).href,
+        plus: new URL("../imgButtons/plus.png", import.meta.url).href,
+        minus: new URL("../imgButtons/minus.png", import.meta.url).href,
+        link: new URL("../imgButtons/location.png", import.meta.url).href,
+        location: new URL("../imgButtons/location.png", import.meta.url).href,
+        floorplan,
+        info: new URL("../imgButtons/info.png", import.meta.url).href,
+        close: new URL("../imgButtons/close.png", import.meta.url).href,
+      };
+    },
+    [activeData?.floorplanImageUrl],
   );
 
   useEffect(() => {
@@ -73,11 +87,11 @@ const Playground = () => {
 
     const initialAutorotateEnabled = readBooleanFromSession(
       AUTOROTATE_ENABLED_STORAGE_KEY,
-      Boolean(data.settings.autorotateEnabled),
+      Boolean(activeData.settings.autorotateEnabled),
     );
     const initialViewControlButtonsEnabled = readBooleanFromSession(
       VIEW_CONTROL_BUTTONS_STORAGE_KEY,
-      Boolean(data.settings.viewControlButtons),
+      Boolean(activeData.settings.viewControlButtons),
     );
 
     const updateFloorplanBounds = () => {
@@ -102,7 +116,7 @@ const Playground = () => {
 
     const bodyClasses = [];
     const shouldShowSceneMenu =
-      data.scenes.length > 1 || Boolean(data.floorplanImageUrl);
+      activeData.scenes.length > 1 || Boolean(activeData.floorplanImageUrl);
     if (shouldShowSceneMenu) {
       bodyClasses.push("multiple-scenes");
     } else {
@@ -565,14 +579,14 @@ const Playground = () => {
 
       const viewerOpts = {
         controls: {
-          mouseViewMode: data.settings.mouseViewMode,
+          mouseViewMode: activeData.settings.mouseViewMode,
         },
       };
 
       const viewer = new Marzipano.Viewer(panoElement, viewerOpts);
       let activeScene = null;
 
-      const scenes = data.scenes.map((sceneData) => {
+      const scenes = activeData.scenes.map((sceneData) => {
         const source = Marzipano.ImageUrlSource.fromString(sceneData.imageUrl);
         const geometry = new Marzipano.EquirectGeometry([
           { width: sceneData.equirectWidth || 4000 },
@@ -658,7 +672,7 @@ const Playground = () => {
 
       autorotateToggleElement?.addEventListener("click", toggleAutorotate);
 
-      if (data.settings.fullscreenButton) {
+      if (activeData.settings.fullscreenButton) {
         document.body.classList.add("fullscreen-enabled");
         if (screenfull?.enabled) {
           fullscreenToggleElement?.addEventListener("click", () => {
@@ -1335,9 +1349,9 @@ const Playground = () => {
       }
 
       function findSceneDataById(id) {
-        for (let i = 0; i < data.scenes.length; i += 1) {
-          if (data.scenes[i].id === id) {
-            return data.scenes[i];
+        for (let i = 0; i < activeData.scenes.length; i += 1) {
+          if (activeData.scenes[i].id === id) {
+            return activeData.scenes[i];
           }
         }
         return null;
@@ -1436,7 +1450,7 @@ const Playground = () => {
       window.removeEventListener("scroll", updateFloorplanBounds);
       infoModals.forEach((modal) => modal.remove());
     };
-  }, [assetUrls]);
+  }, [assetUrls, activeData]);
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-black max-md:flex-col">
@@ -1445,9 +1459,9 @@ const Playground = () => {
           {topBarTarget &&
             createPortal(
               <MarzipanoTopBar
-                scenes={data.scenes}
+                scenes={activeData.scenes}
                 assetUrls={assetUrls}
-                floorplanPositions={floorplanScenePositions}
+                floorplanPositions={activeFloorplanPositions}
                 enableFloorplanMarkerDrag
               />,
               topBarTarget,
@@ -1526,6 +1540,10 @@ const Playground = () => {
             initialData={data}
             initialFloorplanPositions={floorplanScenePositions}
             initialFloorplanImageUrl={data.floorplanImageUrl || ""}
+            onRuntimeDataChange={({ data: nextData, floorplanPositions }) => {
+              setRuntimeData(nextData);
+              setRuntimeFloorplanPositions(floorplanPositions);
+            }}
           />
         </div>
       </aside>
