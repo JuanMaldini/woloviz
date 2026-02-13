@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaLocationDot } from "react-icons/fa6";
 import {
   IoChevronBackOutline,
@@ -17,6 +17,9 @@ const MarzipanoTopBar = ({
   floorplanPositions = [],
   enableFloorplanMarkerDrag = false,
 }) => {
+  const debugTag = "[MarzipanoTopBar][ProdDebug]";
+  const debugLog = (...args) => console.log(debugTag, ...args);
+  const debugWarn = (...args) => console.warn(debugTag, ...args);
   const DRAG_START_DISTANCE_PX = 12;
   const floorplanIconSize = 22;
   const stageRef = useRef(null);
@@ -32,6 +35,101 @@ const MarzipanoTopBar = ({
   });
   const [livePositions, setLivePositions] = useState({});
   const [isFloorplanOpen, setIsFloorplanOpen] = useState(false);
+  const floorplanSrc = String(assetUrls?.floorplan ?? "");
+  const [floorplanSrcIndex, setFloorplanSrcIndex] = useState(0);
+
+  const floorplanCandidateSources = useMemo(() => {
+    if (!floorplanSrc) {
+      return [];
+    }
+
+    const isAbsoluteUrl =
+      /^([a-z]+:|\/\/|blob:|data:)/i.test(floorplanSrc) ||
+      floorplanSrc.startsWith("/");
+
+    const baseUrl = String(import.meta.env.BASE_URL || "/");
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    const withoutLeadingSlash = floorplanSrc.startsWith("/")
+      ? floorplanSrc.slice(1)
+      : floorplanSrc;
+    const basePrefixedSrc = `${normalizedBaseUrl}${withoutLeadingSlash}`;
+
+    const sources = isAbsoluteUrl
+      ? [floorplanSrc]
+      : [floorplanSrc, basePrefixedSrc];
+
+    return Array.from(new Set(sources.filter(Boolean)));
+  }, [floorplanSrc]);
+
+  const activeFloorplanSrc =
+    floorplanCandidateSources[floorplanSrcIndex] || floorplanSrc;
+
+  useEffect(() => {
+    setFloorplanSrcIndex(0);
+  }, [floorplanSrc]);
+
+  useEffect(() => {
+    debugLog("render-state", {
+      showFloorplan,
+      floorplanSrc,
+      floorplanCandidateSources,
+      sceneCount: scenes.length,
+      markerCount: floorplanPositions.length,
+      dragEnabled: enableFloorplanMarkerDrag,
+    });
+  }, [
+    showFloorplan,
+    floorplanSrc,
+    floorplanCandidateSources,
+    scenes.length,
+    floorplanPositions.length,
+    enableFloorplanMarkerDrag,
+  ]);
+
+  useEffect(() => {
+    if (!showFloorplan) {
+      return undefined;
+    }
+
+    if (!activeFloorplanSrc) {
+      debugWarn("floorplan-src-empty");
+      return undefined;
+    }
+
+    debugLog("floorplan-probe-start", {
+      src: activeFloorplanSrc,
+      href: window.location.href,
+    });
+
+    const imageProbe = new Image();
+    imageProbe.onload = () => {
+      debugLog("floorplan-probe-load", {
+        src: activeFloorplanSrc,
+        naturalWidth: imageProbe.naturalWidth,
+        naturalHeight: imageProbe.naturalHeight,
+      });
+    };
+    imageProbe.onerror = () => {
+      debugWarn("floorplan-probe-error", {
+        src: activeFloorplanSrc,
+      });
+    };
+    imageProbe.src = activeFloorplanSrc;
+
+    return () => {
+      imageProbe.onload = null;
+      imageProbe.onerror = null;
+    };
+  }, [showFloorplan, activeFloorplanSrc]);
+
+  useEffect(() => {
+    if (!showFloorplan) {
+      return;
+    }
+    debugLog("floorplan-modal-state", {
+      open: isFloorplanOpen,
+    });
+  }, [showFloorplan, isFloorplanOpen]);
 
   const normalizePositionValue = (value) => {
     const numeric = Number(value);
@@ -213,19 +311,32 @@ const MarzipanoTopBar = ({
 
   const handleMarkerClick = (sceneId, event) => {
     if (!enableFloorplanMarkerDrag) {
+      debugLog("marker-click", { sceneId, dragEnabled: false });
       return;
     }
     if (suppressClickSceneRef.current === sceneId) {
       event.preventDefault();
       event.stopPropagation();
       suppressClickSceneRef.current = null;
+      debugLog("marker-click-suppressed-after-drag", { sceneId });
+      return;
     }
+    debugLog("marker-click", { sceneId, dragEnabled: true });
   };
 
   const getMarkerInteractionProps = (sceneId) => {
     if (!enableFloorplanMarkerDrag) {
       return {
-        onClickCapture: () => setIsFloorplanOpen(false),
+        onClickCapture: (event) => {
+          const markerSceneId = String(
+            event.currentTarget?.getAttribute("data-id") ?? "",
+          );
+          debugLog("marker-click-capture", {
+            sceneId: markerSceneId,
+            dragEnabled: false,
+          });
+          setIsFloorplanOpen(false);
+        },
       };
     }
 
@@ -263,7 +374,12 @@ const MarzipanoTopBar = ({
               <button
                 type="button"
                 className="scene floor-plan-trigger"
-                onClick={() => setIsFloorplanOpen(true)}
+                onClick={() => {
+                  debugLog("floorplan-open-click", {
+                    src: activeFloorplanSrc,
+                  });
+                  setIsFloorplanOpen(true);
+                }}
               >
                 <span className="text">Floorplan</span>
               </button>
@@ -295,8 +411,38 @@ const MarzipanoTopBar = ({
           <div className="floor-plan-panel">
             <div className="floor-plan-stage" ref={stageRef}>
               <div className="floor-plan-image">
-                {assetUrls.floorplan ? (
-                  <img src={assetUrls.floorplan} alt="Floorplan" />
+                {activeFloorplanSrc ? (
+                  <img
+                    src={activeFloorplanSrc}
+                    alt="Floorplan"
+                    onLoad={(event) => {
+                      debugLog("floorplan-img-load", {
+                        src: event.currentTarget.currentSrc,
+                        naturalWidth: event.currentTarget.naturalWidth,
+                        naturalHeight: event.currentTarget.naturalHeight,
+                      });
+                    }}
+                    onError={(event) => {
+                      const failedSrc =
+                        event.currentTarget.currentSrc ||
+                        event.currentTarget.getAttribute("src");
+                      const hasNextCandidate =
+                        floorplanSrcIndex + 1 <
+                        floorplanCandidateSources.length;
+
+                      debugWarn("floorplan-img-error", {
+                        src: failedSrc,
+                        hasNextCandidate,
+                        nextCandidate:
+                          floorplanCandidateSources[floorplanSrcIndex + 1] ||
+                          null,
+                      });
+
+                      if (hasNextCandidate) {
+                        setFloorplanSrcIndex((prev) => prev + 1);
+                      }
+                    }}
+                  />
                 ) : null}
               </div>
               <ul className="floor-plan-scenes">
