@@ -166,13 +166,21 @@ const Playground = () => {
     const init = async () => {
       try {
         await loadScriptOnce("/build/marzipano.js", "marzipano");
+      } catch (error) {
+        console.error("Failed to load Marzipano script", error);
+        return;
+      }
+
+      try {
         await loadScriptOnce(
           "https://www.marzipano.net/demos/common/screenfull.js",
           "screenfull",
         );
       } catch (error) {
-        console.error("Failed to load Marzipano scripts", error);
-        return;
+        console.warn(
+          "screenfull script could not be loaded; fullscreen toggle will be disabled",
+          error,
+        );
       }
 
       if (disposed) {

@@ -525,6 +525,9 @@ body.marzipano-navbar #autorotateToggle,
 body.marzipano-navbar #fullscreenToggle {
   width: 36px;
   padding: 0;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(1px);
 }
 
 body.marzipano-navbar #sceneListToggle .icon,
@@ -532,8 +535,10 @@ body.marzipano-navbar #autorotateToggle .icon,
 body.marzipano-navbar #fullscreenToggle .icon {
   width: 30px;
   height: 30px;
-  transform: scale(clamp(0.7, 2.3vw, 1));
+  transform: scale(clamp(0.82, 2.3vw, 1));
   transform-origin: center;
+  display: block;
+  object-fit: contain;
 }
 
 body.marzipano-navbar #sceneList .scene {

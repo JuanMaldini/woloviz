@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getOrCreatePlaygroundSessionId,
+  loadPlaygroundImageBlob,
+  readPlaygroundDraftFromSession,
+  savePlaygroundImageBlob,
+  writePlaygroundDraftToSession,
+} from "./browserDraftStorage";
 
 const SETTINGS_DEFAULTS = {
   mouseViewMode: "drag",
@@ -11,6 +18,7 @@ const PRESERVE_CURRENT_VIEW_STORAGE_KEY = "playground:preserve-current-view";
 const RUNTIME_VIEW_STATE_STORAGE_KEY = "playground:current-view-state:v1";
 const AUTOROTATE_ENABLED_STORAGE_KEY = "playground:autorotate-enabled";
 const VIEW_CONTROL_BUTTONS_STORAGE_KEY = "playground:view-control-buttons";
+const PLAYGROUND_DRAFT_SCHEMA_VERSION = 1;
 
 const EQUIRECT_WIDTH_DEFAULT = 4000;
 const SCENE_REQUIRED_ASPECT_RATIO = 2;
@@ -518,6 +526,21 @@ function revokeBlobUrl(url) {
   } catch {}
 }
 
+function buildDefaultSettings(initialData) {
+  return {
+    mouseViewMode: SETTINGS_DEFAULTS.mouseViewMode,
+    autorotateEnabled: Boolean(
+      initialData?.settings?.autorotateEnabled ??
+      SETTINGS_DEFAULTS.autorotateEnabled,
+    ),
+    fullscreenButton: SETTINGS_DEFAULTS.fullscreenButton,
+    viewControlButtons: Boolean(
+      initialData?.settings?.viewControlButtons ??
+      SETTINGS_DEFAULTS.viewControlButtons,
+    ),
+  };
+}
+
 export default function Form({
   initialData,
   initialFloorplanPositions,
@@ -526,10 +549,13 @@ export default function Form({
   const isProduction = import.meta.env.PROD;
   const autoWriteTimerRef = useRef(null);
   const uploadedObjectUrlsRef = useRef(new Map());
+  const sessionIdRef = useRef("");
+  const didHydrateDraftRef = useRef(false);
   const [tourName, setTourName] = useState(() => initialData?.name ?? "");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState([]);
+  const [canPersistDraft, setCanPersistDraft] = useState(() => !isProduction);
 
   const [scenes, setScenes] = useState(() =>
     (initialData?.scenes ?? []).map((scene) => ({
@@ -688,6 +714,243 @@ export default function Form({
     ],
   );
 
+  const resolveSceneImageAssetKey = (sceneIndex, sceneImageUrl, assets) => {
+    if (!String(sceneImageUrl ?? "").startsWith("blob:")) {
+      return "";
+    }
+
+    const byKindAndIndex = (assets ?? []).find(
+      (asset) =>
+        asset?.kind === "scene" &&
+        Number(asset?.sceneIndex) === sceneIndex &&
+        String(asset?.runtimeUrl ?? "") === String(sceneImageUrl ?? ""),
+    );
+    return String(byKindAndIndex?.key ?? "");
+  };
+
+  const resolveFloorplanAssetKey = (floorplanUrl, assets) => {
+    if (!String(floorplanUrl ?? "").startsWith("blob:")) {
+      return "";
+    }
+
+    const floorplanAsset = (assets ?? []).find(
+      (asset) =>
+        asset?.kind === "floorplan" &&
+        String(asset?.runtimeUrl ?? "") === String(floorplanUrl ?? ""),
+    );
+    return String(floorplanAsset?.key ?? "");
+  };
+
+  const buildBrowserDraftSnapshot = () => {
+    const sceneImageAssetKeys = derivedScenes.map((scene, index) =>
+      resolveSceneImageAssetKey(index, scene.imageUrl, uploadedAssets),
+    );
+
+    return {
+      schemaVersion: PLAYGROUND_DRAFT_SCHEMA_VERSION,
+      updatedAt: Date.now(),
+      tourName,
+      clientName,
+      clientEmail,
+      preserveCurrentView,
+      autorotateEnabled,
+      viewControlButtons,
+      settings: buildDefaultSettings(initialData),
+      sceneIds,
+      scenes,
+      hotspotsBySceneIndex,
+      floorplanPositions,
+      floorplanImageUrl,
+      floorplanImageAssetKey: resolveFloorplanAssetKey(
+        floorplanImageUrl,
+        uploadedAssets,
+      ),
+      sceneImageAssetKeys,
+      uploadedAssets: uploadedAssets.map((asset) => ({
+        ...asset,
+        runtimeUrl: "",
+      })),
+    };
+  };
+
+  const writeDraftInBrowser = (notifySuccess = false) => {
+    const snapshot = buildBrowserDraftSnapshot();
+    const ok = writePlaygroundDraftToSession(snapshot);
+    if (!ok) {
+      throw new Error("Failed to persist playground draft in session");
+    }
+
+    if (notifySuccess) {
+      setCopyState({
+        state: "copied",
+        message: "Saved draft in current browser session",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!isProduction || typeof window === "undefined") {
+      didHydrateDraftRef.current = true;
+      setCanPersistDraft(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateFromSession = async () => {
+      sessionIdRef.current = getOrCreatePlaygroundSessionId();
+      const savedDraft = readPlaygroundDraftFromSession();
+
+      if (
+        !savedDraft ||
+        Number(savedDraft?.schemaVersion) !== PLAYGROUND_DRAFT_SCHEMA_VERSION
+      ) {
+        if (!cancelled) {
+          didHydrateDraftRef.current = true;
+          setCanPersistDraft(true);
+        }
+        return;
+      }
+
+      const restoredAssets = await Promise.all(
+        (savedDraft.uploadedAssets ?? []).map(async (asset) => {
+          const blobId = String(asset?.persistedBlobId ?? "").trim();
+          if (!blobId) {
+            return {
+              ...asset,
+              runtimeUrl: "",
+            };
+          }
+
+          const blob = await loadPlaygroundImageBlob(blobId);
+          if (!blob) {
+            return {
+              ...asset,
+              runtimeUrl: "",
+            };
+          }
+
+          return {
+            ...asset,
+            runtimeUrl: URL.createObjectURL(blob),
+          };
+        }),
+      );
+
+      if (cancelled) {
+        restoredAssets.forEach((asset) => revokeBlobUrl(asset?.runtimeUrl));
+        return;
+      }
+
+      uploadedObjectUrlsRef.current.forEach((url) => revokeBlobUrl(url));
+      uploadedObjectUrlsRef.current.clear();
+
+      restoredAssets.forEach((asset) => {
+        const key = String(asset?.key ?? "").trim();
+        const runtimeUrl = String(asset?.runtimeUrl ?? "");
+        if (key && runtimeUrl) {
+          uploadedObjectUrlsRef.current.set(key, runtimeUrl);
+        }
+      });
+
+      const restoredAssetUrlByKey = new Map(
+        restoredAssets.map((asset) => [
+          String(asset?.key ?? ""),
+          String(asset?.runtimeUrl ?? ""),
+        ]),
+      );
+
+      const nextScenes = (savedDraft.scenes ?? []).map((scene, index) => {
+        const key = String(savedDraft.sceneImageAssetKeys?.[index] ?? "");
+        const restoredRuntimeUrl = restoredAssetUrlByKey.get(key);
+
+        return {
+          ...scene,
+          imageUrl:
+            restoredRuntimeUrl && restoredRuntimeUrl.length
+              ? restoredRuntimeUrl
+              : String(scene?.imageUrl ?? ""),
+        };
+      });
+
+      const restoredFloorplanUrl = restoredAssetUrlByKey.get(
+        String(savedDraft.floorplanImageAssetKey ?? ""),
+      );
+
+      const fallbackScenes = (initialData?.scenes ?? []).map((scene) => ({
+        name: scene.name ?? "",
+        imageUrl: scene.imageUrl ?? "",
+        initialViewParameters: {
+          pitch: scene.initialViewParameters?.pitch ?? 0,
+          yaw: scene.initialViewParameters?.yaw ?? 0,
+          fov: scene.initialViewParameters?.fov ?? 110,
+        },
+      }));
+
+      const scenesToUse = nextScenes.length ? nextScenes : fallbackScenes;
+
+      setTourName(String(savedDraft.tourName ?? ""));
+      setClientName(String(savedDraft.clientName ?? ""));
+      setClientEmail(String(savedDraft.clientEmail ?? ""));
+      setScenes(scenesToUse);
+      setSceneIds(
+        (savedDraft.sceneIds ?? []).length
+          ? savedDraft.sceneIds
+          : scenesToUse.map((scene) => formatSceneId(scene.name)),
+      );
+      setHotspotsBySceneIndex(
+        (savedDraft.hotspotsBySceneIndex ?? []).length
+          ? savedDraft.hotspotsBySceneIndex
+          : scenesToUse.map((scene) => ({
+              linkHotspots: (scene.linkHotspots ?? []).map((hotspot) => ({
+                yaw: hotspot.yaw ?? "",
+                pitch: hotspot.pitch ?? "",
+                target: hotspot.target ?? "",
+              })),
+              infoHotspots: (scene.infoHotspots ?? []).map((hotspot) => ({
+                yaw: hotspot.yaw ?? "",
+                pitch: hotspot.pitch ?? "",
+                title: hotspot.title ?? "",
+                text: hotspot.text ?? "",
+              })),
+            })),
+      );
+      setFloorplanPositions(
+        (savedDraft.floorplanPositions ?? []).length
+          ? savedDraft.floorplanPositions
+          : (initialFloorplanPositions ?? []),
+      );
+      setFloorplanImageUrl(
+        restoredFloorplanUrl && restoredFloorplanUrl.length
+          ? restoredFloorplanUrl
+          : String(savedDraft.floorplanImageUrl ?? initialFloorplanImageUrl),
+      );
+      setPreserveCurrentView(Boolean(savedDraft.preserveCurrentView));
+      setAutorotateEnabled(Boolean(savedDraft.autorotateEnabled));
+      setViewControlButtons(Boolean(savedDraft.viewControlButtons));
+      setUploadedAssets(restoredAssets);
+
+      didHydrateDraftRef.current = true;
+      setCanPersistDraft(true);
+    };
+
+    hydrateFromSession().catch(() => {
+      if (!cancelled) {
+        didHydrateDraftRef.current = true;
+        setCanPersistDraft(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    initialData,
+    initialFloorplanImageUrl,
+    initialFloorplanPositions,
+    isProduction,
+  ]);
+
   useEffect(() => {
     try {
       window.sessionStorage.setItem(
@@ -808,6 +1071,17 @@ export default function Form({
       filename: file.name,
     });
     const runtimeUrl = URL.createObjectURL(file);
+    const sessionId =
+      sessionIdRef.current || getOrCreatePlaygroundSessionId() || "";
+    sessionIdRef.current = sessionId;
+    const persistedBlobId = isProduction
+      ? await savePlaygroundImageBlob({
+          sessionId,
+          kind,
+          sceneIndex,
+          file,
+        })
+      : "";
 
     if (kind === "floorplan") {
       setFloorplanImageUrl(runtimeUrl);
@@ -822,6 +1096,7 @@ export default function Form({
       fileName: file.name,
       mimeType: file.type,
       runtimeUrl,
+      persistedBlobId,
       suggestedPath,
       width: dimensions?.width ?? null,
       height: dimensions?.height ?? null,
@@ -1336,7 +1611,28 @@ export default function Form({
   };
 
   const scheduleAutoWrite = () => {
+    if (!canPersistDraft || !didHydrateDraftRef.current) {
+      return;
+    }
+
     if (isProduction) {
+      if (autoWriteTimerRef.current) {
+        window.clearTimeout(autoWriteTimerRef.current);
+      }
+
+      autoWriteTimerRef.current = window.setTimeout(() => {
+        try {
+          writeDraftInBrowser(false);
+        } catch (error) {
+          setCopyState({
+            state: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to auto-save draft in session",
+          });
+        }
+      }, 300);
       return;
     }
 
@@ -1361,7 +1657,19 @@ export default function Form({
 
   useEffect(() => {
     scheduleAutoWrite();
-  }, [output]);
+  }, [
+    output,
+    clientName,
+    clientEmail,
+    preserveCurrentView,
+    canPersistDraft,
+    scenes,
+    sceneIds,
+    hotspotsBySceneIndex,
+    floorplanPositions,
+    floorplanImageUrl,
+    uploadedAssets,
+  ]);
 
   const onGenerate = async () => {
     try {
@@ -1393,6 +1701,7 @@ export default function Form({
       console.log("OK", integrationPayload);
 
       if (isProduction) {
+        writeDraftInBrowser(false);
         downloadTextFile("data.js", output);
         setCopyState({ state: "copied", message: "Downloaded data.js" });
       } else {
