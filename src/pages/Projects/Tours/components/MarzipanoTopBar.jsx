@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from "react";
+import { FaLocationDot } from "react-icons/fa6";
 import {
   IoChevronBackOutline,
   IoChevronForwardOutline,
   IoContractOutline,
   IoExpandOutline,
-  IoLocation,
   IoPause,
   IoPlay,
 } from "react-icons/io5";
@@ -316,7 +316,7 @@ const MarzipanoTopBar = ({
                       aria-label={scene.name}
                       {...getMarkerInteractionProps(scene.id)}
                     >
-                      <IoLocation
+                      <FaLocationDot
                         className="icon"
                         aria-hidden="true"
                         size={floorplanIconSize}

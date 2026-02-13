@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { renderToStaticMarkup } from "react-dom/server";
+import { FaLocationDot } from "react-icons/fa6";
+import {
+  IoAdd,
+  IoChevronDown,
+  IoChevronForward,
+  IoChevronUp,
+  IoRemove,
+} from "react-icons/io5";
 import { IoInformationCircleOutline } from "react-icons/io5";
 import bowser from "bowser";
 import "../style.css";
@@ -50,8 +59,6 @@ const Playground = () => {
       right: new URL("../imgButtons/right.png", import.meta.url).href,
       plus: new URL("../imgButtons/plus.png", import.meta.url).href,
       minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-      link: new URL("../imgButtons/location.png", import.meta.url).href,
-      location: new URL("../imgButtons/location.png", import.meta.url).href,
       floorplan,
       info: new URL("../imgButtons/info.png", import.meta.url).href,
       close: new URL("../imgButtons/close.png", import.meta.url).href,
@@ -172,6 +179,7 @@ const Playground = () => {
     let onPanoWheelForViewSave = null;
     let onPreserveCurrentViewChanged = null;
     let onViewerSettingsChanged = null;
+    let viewerInstance = null;
     const viewChangeListeners = [];
 
     const init = async () => {
@@ -584,6 +592,7 @@ const Playground = () => {
       };
 
       const viewer = new Marzipano.Viewer(panoElement, viewerOpts);
+      viewerInstance = viewer;
       let activeScene = null;
 
       const scenes = activeData.scenes.map((sceneData) => {
@@ -947,22 +956,31 @@ const Playground = () => {
         const wrapper = document.createElement("div");
         wrapper.classList.add("hotspot", "link-hotspot");
 
-        const icon = document.createElement("img");
-        icon.src = assetUrls.link;
+        const icon = document.createElement("div");
         icon.classList.add("link-hotspot-icon");
+        icon.innerHTML = renderToStaticMarkup(
+          <FaLocationDot aria-hidden="true" focusable="false" />,
+        );
 
         const rotation = hotspot.rotation ?? 0;
         icon.style.setProperty("--hotspot-rotation", `${rotation}rad`);
 
         wrapper.addEventListener("click", () => {
-          switchScene(findSceneById(hotspot.target));
+          const targetScene = findSceneById(hotspot.target);
+          if (!targetScene) {
+            return;
+          }
+          switchScene(targetScene);
         });
 
         stopTouchAndScrollEventPropagation(wrapper);
 
         const tooltip = document.createElement("div");
         tooltip.classList.add("hotspot-tooltip", "link-hotspot-tooltip");
-        tooltip.innerHTML = findSceneDataById(hotspot.target).name;
+        const targetSceneData = findSceneDataById(hotspot.target);
+        tooltip.innerHTML = sanitize(
+          targetSceneData?.name || String(hotspot.target || "Unknown scene"),
+        );
 
         wrapper.appendChild(icon);
         wrapper.appendChild(tooltip);
@@ -1449,6 +1467,10 @@ const Playground = () => {
       window.removeEventListener("resize", updateFloorplanBounds);
       window.removeEventListener("scroll", updateFloorplanBounds);
       infoModals.forEach((modal) => modal.remove());
+      if (viewerInstance && typeof viewerInstance.destroy === "function") {
+        viewerInstance.destroy();
+        viewerInstance = null;
+      }
     };
   }, [assetUrls, activeData]);
 
@@ -1474,7 +1496,7 @@ const Playground = () => {
             className="viewControlButton viewControlButton-1"
             aria-label="View up"
           >
-            <img className="icon" src={assetUrls.up} alt="Up" />
+            <IoChevronUp className="icon" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -1482,7 +1504,7 @@ const Playground = () => {
             className="viewControlButton viewControlButton-2"
             aria-label="View down"
           >
-            <img className="icon" src={assetUrls.down} alt="Down" />
+            <IoChevronDown className="icon" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -1490,7 +1512,11 @@ const Playground = () => {
             className="viewControlButton viewControlButton-3"
             aria-label="View left"
           >
-            <img className="icon" src={assetUrls.left} alt="Left" />
+            <IoChevronForward
+              className="icon"
+              aria-hidden="true"
+              style={{ transform: "rotate(180deg)" }}
+            />
           </button>
           <button
             type="button"
@@ -1498,7 +1524,7 @@ const Playground = () => {
             className="viewControlButton viewControlButton-4"
             aria-label="View right"
           >
-            <img className="icon" src={assetUrls.right} alt="Right" />
+            <IoChevronForward className="icon" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -1506,7 +1532,7 @@ const Playground = () => {
             className="viewControlButton viewControlButton-5"
             aria-label="Zoom in"
           >
-            <img className="icon" src={assetUrls.plus} alt="Zoom in" />
+            <IoAdd className="icon" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -1514,7 +1540,7 @@ const Playground = () => {
             className="viewControlButton viewControlButton-6"
             aria-label="Zoom out"
           >
-            <img className="icon" src={assetUrls.minus} alt="Zoom out" />
+            <IoRemove className="icon" aria-hidden="true" />
           </button>
         </div>
       </main>

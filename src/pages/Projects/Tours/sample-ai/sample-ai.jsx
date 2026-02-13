@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { renderToStaticMarkup } from "react-dom/server";
+import { FaLocationDot } from "react-icons/fa6";
+import {
+  IoAdd,
+  IoChevronDown,
+  IoChevronForward,
+  IoChevronUp,
+  IoRemove,
+} from "react-icons/io5";
 import bowser from "bowser";
 import "../style.css";
 import MarzipanoTopBar from "../components/MarzipanoTopBar";
@@ -29,11 +38,31 @@ const data = {
         { yaw: 76, pitch: -39.3, target: "scene2" },
         { yaw: -79.3, pitch: -39.5, target: "scene3" },
         { yaw: -83.7, pitch: -22.5, target: "scene4" },
-        { yaw: -137.44656566250043, pitch: -15.54410302288399, target: "scene5" },
-        { yaw: -123.6022459805157, pitch: -36.71850384146028, target: "scene6" },
-        { yaw: -169.84819835377016, pitch: -19.12233911507805, target: "scene7" },
-        { yaw: 157.45360506549025, pitch: -16.182970890091525, target: "scene8" },
-        { yaw: 131.86112603426764, pitch: -17.201298350399053, target: "scene9" },
+        {
+          yaw: -137.44656566250043,
+          pitch: -15.54410302288399,
+          target: "scene5",
+        },
+        {
+          yaw: -123.6022459805157,
+          pitch: -36.71850384146028,
+          target: "scene6",
+        },
+        {
+          yaw: -169.84819835377016,
+          pitch: -19.12233911507805,
+          target: "scene7",
+        },
+        {
+          yaw: 157.45360506549025,
+          pitch: -16.182970890091525,
+          target: "scene8",
+        },
+        {
+          yaw: 131.86112603426764,
+          pitch: -17.201298350399053,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -47,10 +76,26 @@ const data = {
         { yaw: -84.7, pitch: -22.5, target: "scene3" },
         { yaw: -86.13, pitch: -14.83, target: "scene4" },
         { yaw: -127.16599392678768, pitch: -9.8487250459484, target: "scene5" },
-        { yaw: -108.21319395489375, pitch: -21.694775034377916, target: "scene6" },
-        { yaw: -148.00223758910363, pitch: -17.249935247456012, target: "scene7" },
-        { yaw: 178.4830489771014, pitch: -21.483661654666783, target: "scene8" },
-        { yaw: 168.61775631221477, pitch: -33.211903121259084, target: "scene9" },
+        {
+          yaw: -108.21319395489375,
+          pitch: -21.694775034377916,
+          target: "scene6",
+        },
+        {
+          yaw: -148.00223758910363,
+          pitch: -17.249935247456012,
+          target: "scene7",
+        },
+        {
+          yaw: 178.4830489771014,
+          pitch: -21.483661654666783,
+          target: "scene8",
+        },
+        {
+          yaw: 168.61775631221477,
+          pitch: -33.211903121259084,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -63,11 +108,23 @@ const data = {
         { yaw: 78.85, pitch: -39.85, target: "scene1" },
         { yaw: 82.8, pitch: -20.5, target: "scene2" },
         { yaw: -83, pitch: -40, target: "scene4" },
-        { yaw: -154.76473301441618, pitch: -19.02507533822296, target: "scene5" },
+        {
+          yaw: -154.76473301441618,
+          pitch: -19.02507533822296,
+          target: "scene5",
+        },
         { yaw: 169.01358570131745, pitch: -47.8310697985946, target: "scene6" },
         { yaw: 167.201410333578, pitch: -16.912169045298757, target: "scene7" },
-        { yaw: 137.54499892899565, pitch: -16.091680957318797, target: "scene8" },
-        { yaw: 121.96174179271367, pitch: -12.091947020653173, target: "scene9" },
+        {
+          yaw: 137.54499892899565,
+          pitch: -16.091680957318797,
+          target: "scene8",
+        },
+        {
+          yaw: 121.96174179271367,
+          pitch: -12.091947020653173,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -80,11 +137,27 @@ const data = {
         { yaw: 83.34, pitch: -22.26, target: "scene1" },
         { yaw: 84.9, pitch: -14.98, target: "scene2" },
         { yaw: 78.2, pitch: -39, target: "scene3" },
-        { yaw: -178.94586609971043, pitch: -20.733420533908816, target: "scene5" },
-        { yaw: 120.70057724831881, pitch: -28.679708683621662, target: "scene6" },
+        {
+          yaw: -178.94586609971043,
+          pitch: -20.733420533908816,
+          target: "scene5",
+        },
+        {
+          yaw: 120.70057724831881,
+          pitch: -28.679708683621662,
+          target: "scene6",
+        },
         { yaw: 147.6725101755357, pitch: -16.21390483985229, target: "scene7" },
-        { yaw: 123.76136172388765, pitch: -12.010246671985387, target: "scene8" },
-        { yaw: 112.36683727588053, pitch: -8.095310457991827, target: "scene9" },
+        {
+          yaw: 123.76136172388765,
+          pitch: -12.010246671985387,
+          target: "scene8",
+        },
+        {
+          yaw: 112.36683727588053,
+          pitch: -8.095310457991827,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -96,9 +169,21 @@ const data = {
       linkHotspots: [
         { yaw: 40.28816438988322, pitch: -17.36874125533316, target: "scene1" },
         { yaw: 52.53304877938946, pitch: -13.18578139862265, target: "scene2" },
-        { yaw: 20.018597248567815, pitch: -20.124284707485618, target: "scene3" },
-        { yaw: -6.427350792947299, pitch: -21.183348165899343, target: "scene4" },
-        { yaw: 40.745006906348195, pitch: -29.522495115816653, target: "scene6" },
+        {
+          yaw: 20.018597248567815,
+          pitch: -20.124284707485618,
+          target: "scene3",
+        },
+        {
+          yaw: -6.427350792947299,
+          pitch: -21.183348165899343,
+          target: "scene4",
+        },
+        {
+          yaw: 40.745006906348195,
+          pitch: -29.522495115816653,
+          target: "scene6",
+        },
         { yaw: 104.50636072608798, pitch: -33.3487823908823, target: "scene7" },
         { yaw: 96.86297950518878, pitch: -16.54278648905028, target: "scene8" },
         { yaw: 79.9568347627397, pitch: -14.189714973171053, target: "scene9" },
@@ -111,14 +196,42 @@ const data = {
       imageUrl: "/projects/Sampleai/Sample_AI09_06.jpg",
       equirectWidth: 4000,
       linkHotspots: [
-        { yaw: 40.10544356810522, pitch: -31.163373949401862, target: "scene1" },
+        {
+          yaw: 40.10544356810522,
+          pitch: -31.163373949401862,
+          target: "scene1",
+        },
         { yaw: 59.77693379377578, pitch: -20.28979049413677, target: "scene2" },
-        { yaw: -3.9811814423990715, pitch: -38.274376766243684, target: "scene3" },
-        { yaw: -48.479075915685065, pitch: -28.222816532607172, target: "scene4" },
-        { yaw: -139.3652455733243, pitch: -23.691310907868168, target: "scene5" },
-        { yaw: 161.6564590249756, pitch: -29.003184150971585, target: "scene7" },
-        { yaw: 123.59358293242587, pitch: -20.079889909033017, target: "scene8" },
-        { yaw: 101.38726200220353, pitch: -15.661701680967486, target: "scene9" },
+        {
+          yaw: -3.9811814423990715,
+          pitch: -38.274376766243684,
+          target: "scene3",
+        },
+        {
+          yaw: -48.479075915685065,
+          pitch: -28.222816532607172,
+          target: "scene4",
+        },
+        {
+          yaw: -139.3652455733243,
+          pitch: -23.691310907868168,
+          target: "scene5",
+        },
+        {
+          yaw: 161.6564590249756,
+          pitch: -29.003184150971585,
+          target: "scene7",
+        },
+        {
+          yaw: 123.59358293242587,
+          pitch: -20.079889909033017,
+          target: "scene8",
+        },
+        {
+          yaw: 101.38726200220353,
+          pitch: -15.661701680967486,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -128,14 +241,34 @@ const data = {
       imageUrl: "/projects/Sampleai/Sample_AI09_07.jpg",
       equirectWidth: 4000,
       linkHotspots: [
-        { yaw: 10.78535391084768, pitch: -18.447826580454247, target: "scene1" },
-        { yaw: 30.45076194981643, pitch: -15.318869462125221, target: "scene2" },
-        { yaw: -11.981568169786621, pitch: -18.343435907245166, target: "scene3" },
+        {
+          yaw: 10.78535391084768,
+          pitch: -18.447826580454247,
+          target: "scene1",
+        },
+        {
+          yaw: 30.45076194981643,
+          pitch: -15.318869462125221,
+          target: "scene2",
+        },
+        {
+          yaw: -11.981568169786621,
+          pitch: -18.343435907245166,
+          target: "scene3",
+        },
         { yaw: -31.77007008893558, pitch: -21.5103366181141, target: "scene4" },
         { yaw: -90.0166369015954, pitch: -28.05904379980902, target: "scene5" },
-        { yaw: -16.114712877435473, pitch: -27.80749980852305, target: "scene6" },
+        {
+          yaw: -16.114712877435473,
+          pitch: -27.80749980852305,
+          target: "scene6",
+        },
         { yaw: 85.9337419973798, pitch: -29.431855736905604, target: "scene8" },
-        { yaw: 64.02675077852737, pitch: -22.142183292534014, target: "scene9" },
+        {
+          yaw: 64.02675077852737,
+          pitch: -22.142183292534014,
+          target: "scene9",
+        },
       ],
       infoHotspots: [],
     },
@@ -145,13 +278,41 @@ const data = {
       imageUrl: "/projects/Sampleai/Sample_AI09_08.jpg",
       equirectWidth: 4000,
       linkHotspots: [
-        { yaw: -19.95949433094716, pitch: -12.740081481550195, target: "scene1" },
-        { yaw: 2.0767381860122773, pitch: -18.855971290316656, target: "scene2" },
-        { yaw: -37.78479291226232, pitch: -14.690884797372796, target: "scene3" },
-        { yaw: -50.67139990471715, pitch: -11.98857033393422, target: "scene4" },
-        { yaw: -90.5242565629528, pitch: -15.208363763527167, target: "scene5" },
-        { yaw: -51.70541966413192, pitch: -15.897946138116595, target: "scene6" },
-        { yaw: -92.6543497506861, pitch: -30.500596596804016, target: "scene7" },
+        {
+          yaw: -19.95949433094716,
+          pitch: -12.740081481550195,
+          target: "scene1",
+        },
+        {
+          yaw: 2.0767381860122773,
+          pitch: -18.855971290316656,
+          target: "scene2",
+        },
+        {
+          yaw: -37.78479291226232,
+          pitch: -14.690884797372796,
+          target: "scene3",
+        },
+        {
+          yaw: -50.67139990471715,
+          pitch: -11.98857033393422,
+          target: "scene4",
+        },
+        {
+          yaw: -90.5242565629528,
+          pitch: -15.208363763527167,
+          target: "scene5",
+        },
+        {
+          yaw: -51.70541966413192,
+          pitch: -15.897946138116595,
+          target: "scene6",
+        },
+        {
+          yaw: -92.6543497506861,
+          pitch: -30.500596596804016,
+          target: "scene7",
+        },
         { yaw: 20.14232144595964, pitch: -42.64444420404129, target: "scene9" },
       ],
       infoHotspots: [],
@@ -162,14 +323,42 @@ const data = {
       imageUrl: "/projects/Sampleai/Sample_AI09_09.jpg",
       equirectWidth: 4000,
       linkHotspots: [
-        { yaw: -37.58376719775619, pitch: -17.620729859395748, target: "scene1" },
-        { yaw: -7.5519614412622795, pitch: -27.636903609666927, target: "scene2" },
+        {
+          yaw: -37.58376719775619,
+          pitch: -17.620729859395748,
+          target: "scene1",
+        },
+        {
+          yaw: -7.5519614412622795,
+          pitch: -27.636903609666927,
+          target: "scene2",
+        },
         { yaw: -55.468526191535, pitch: -15.947504283700706, target: "scene3" },
-        { yaw: -64.2978640805966, pitch: -12.533678648129888, target: "scene4" },
-        { yaw: -106.68635419388208, pitch: -12.986830038576985, target: "scene5" },
-        { yaw: -73.06478792983197, pitch: -15.515865409406528, target: "scene6" },
-        { yaw: -119.69140424465037, pitch: -22.445093176570886, target: "scene7" },
-        { yaw: -162.5179985376181, pitch: -39.85751604757657, target: "scene8" },
+        {
+          yaw: -64.2978640805966,
+          pitch: -12.533678648129888,
+          target: "scene4",
+        },
+        {
+          yaw: -106.68635419388208,
+          pitch: -12.986830038576985,
+          target: "scene5",
+        },
+        {
+          yaw: -73.06478792983197,
+          pitch: -15.515865409406528,
+          target: "scene6",
+        },
+        {
+          yaw: -119.69140424465037,
+          pitch: -22.445093176570886,
+          target: "scene7",
+        },
+        {
+          yaw: -162.5179985376181,
+          pitch: -39.85751604757657,
+          target: "scene8",
+        },
       ],
       infoHotspots: [],
     },
@@ -204,8 +393,6 @@ const SampleAI = () => {
       right: new URL("../imgButtons/right.png", import.meta.url).href,
       plus: new URL("../imgButtons/plus.png", import.meta.url).href,
       minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-      link: new URL("../imgButtons/location.png", import.meta.url).href,
-      location: new URL("../imgButtons/location.png", import.meta.url).href,
       floorplan: new URL("/projects/Sampleai/Floorplan.png", import.meta.url)
         .href,
       info: new URL("../imgButtons/info.png", import.meta.url).href,
@@ -663,22 +850,29 @@ const SampleAI = () => {
         const wrapper = document.createElement("div");
         wrapper.classList.add("hotspot", "link-hotspot");
 
-        const icon = document.createElement("img");
-        icon.src = assetUrls.link;
+        const icon = document.createElement("div");
         icon.classList.add("link-hotspot-icon");
+        icon.innerHTML = renderToStaticMarkup(
+          <FaLocationDot aria-hidden="true" focusable="false" />,
+        );
 
         const rotation = hotspot.rotation ?? 0;
         icon.style.setProperty("--hotspot-rotation", `${rotation}rad`);
 
         wrapper.addEventListener("click", () => {
-          switchScene(findSceneById(hotspot.target));
+          const targetScene = findSceneById(hotspot.target);
+          if (!targetScene) {
+            return;
+          }
+          switchScene(targetScene);
         });
 
         stopTouchAndScrollEventPropagation(wrapper);
 
         const tooltip = document.createElement("div");
         tooltip.classList.add("hotspot-tooltip", "link-hotspot-tooltip");
-        tooltip.innerHTML = findSceneDataById(hotspot.target).name;
+        tooltip.innerHTML =
+          findSceneDataById(hotspot.target)?.name || String(hotspot.target);
 
         wrapper.appendChild(icon);
         wrapper.appendChild(tooltip);
@@ -834,7 +1028,7 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-1"
         aria-label="View up"
       >
-        <img className="icon" src={assetUrls.up} alt="Up" />
+        <IoChevronUp className="icon" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -842,7 +1036,7 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-2"
         aria-label="View down"
       >
-        <img className="icon" src={assetUrls.down} alt="Down" />
+        <IoChevronDown className="icon" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -850,7 +1044,11 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-3"
         aria-label="View left"
       >
-        <img className="icon" src={assetUrls.left} alt="Left" />
+        <IoChevronForward
+          className="icon"
+          aria-hidden="true"
+          style={{ transform: "rotate(180deg)" }}
+        />
       </button>
       <button
         type="button"
@@ -858,7 +1056,7 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-4"
         aria-label="View right"
       >
-        <img className="icon" src={assetUrls.right} alt="Right" />
+        <IoChevronForward className="icon" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -866,7 +1064,7 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-5"
         aria-label="Zoom in"
       >
-        <img className="icon" src={assetUrls.plus} alt="Zoom in" />
+        <IoAdd className="icon" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -874,7 +1072,7 @@ const SampleAI = () => {
         className="viewControlButton viewControlButton-6"
         aria-label="Zoom out"
       >
-        <img className="icon" src={assetUrls.minus} alt="Zoom out" />
+        <IoRemove className="icon" aria-hidden="true" />
       </button>
     </div>
   );

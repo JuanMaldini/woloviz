@@ -179,6 +179,7 @@ body.fullscreen-disabled #fullscreenToggle {
   right: 5px;
   width: 30px;
   height: 30px;
+  display: block;
 }
 
 .mobile #fullscreenToggle .icon {
@@ -235,6 +236,7 @@ body.fullscreen-disabled.mobile #autorotateToggle {
   right: 5px;
   width: 30px;
   height: 30px;
+  display: block;
 }
 
 .mobile #autorotateToggle .icon {
@@ -288,6 +290,7 @@ body.fullscreen-disabled.mobile #autorotateToggle {
   right: 5px;
   width: 30px;
   height: 30px;
+  display: block;
 }
 
 .mobile #sceneListToggle .icon {
@@ -614,6 +617,30 @@ body.marzipano-navbar #fullscreenToggle .icon {
   filter: brightness(0);
 }
 
+body.marzipano-navbar #sceneListToggle .icon.on,
+body.marzipano-navbar #autorotateToggle .icon.on,
+body.marzipano-navbar #fullscreenToggle .icon.on {
+  display: none;
+}
+
+body.marzipano-navbar #sceneListToggle .icon.off,
+body.marzipano-navbar #autorotateToggle .icon.off,
+body.marzipano-navbar #fullscreenToggle .icon.off {
+  display: block;
+}
+
+body.marzipano-navbar #sceneListToggle.enabled .icon.on,
+body.marzipano-navbar #autorotateToggle.enabled .icon.on,
+body.marzipano-navbar #fullscreenToggle.enabled .icon.on {
+  display: block;
+}
+
+body.marzipano-navbar #sceneListToggle.enabled .icon.off,
+body.marzipano-navbar #autorotateToggle.enabled .icon.off,
+body.marzipano-navbar #fullscreenToggle.enabled .icon.off {
+  display: none;
+}
+
 @media (max-width: 1024px) {
   body.marzipano-navbar #fullscreenToggle {
     display: none;
@@ -663,6 +690,13 @@ body.single-scene #sceneListToggle {
   cursor: pointer;
   transform: rotate(var(--hotspot-rotation, 0rad));
   transform-origin: center;
+  color: #ffffff;
+}
+
+.link-hotspot-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .link-hotspot-tooltip {
@@ -1239,6 +1273,8 @@ body.view-control-buttons .viewControlButton {
   right: 5px;
   width: 30px;
   height: 30px;
+  display: block;
+  color: #ffffff;
 }
 
 /* Center is at margin-left: -20px */

@@ -254,7 +254,7 @@ function DraggableNumberInput({
       <input
         ref={inputRef}
         type="text"
-        className={`${className} w-full min-w-0 pr-7`}
+        className={`${className} h-8 w-full min-w-0 pr-8 text-center tabular-nums`}
         value={value}
         onChange={(event) => onChangeValue(event.target.value)}
         onWheel={handleWheel}
@@ -264,7 +264,7 @@ function DraggableNumberInput({
       />
       <span
         ref={dragHandleRef}
-        className="absolute inset-y-0 right-0 flex w-6 items-center justify-center border-l border-black/10 text-[10px] text-slate-500 cursor-ew-resize select-none"
+        className="absolute inset-y-0 right-0 flex w-7 items-center justify-center border-l border-black/10 text-[10px] text-slate-500 cursor-ew-resize select-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -550,6 +550,8 @@ export default function Form({
   const isProduction = import.meta.env.PROD;
   const autoWriteTimerRef = useRef(null);
   const uploadedObjectUrlsRef = useRef(new Map());
+  const floorplanFileInputRef = useRef(null);
+  const sceneFileInputRefs = useRef({});
   const sessionIdRef = useRef("");
   const didHydrateDraftRef = useRef(false);
   const [tourName, setTourName] = useState(() => initialData?.name ?? "");
@@ -1816,21 +1818,27 @@ export default function Form({
         />
       </label>
 
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className="text-xs font-semibold tracking-wide text-slate-700">
           Floorplan image
         </span>
-        <label className="inline-flex w-fit cursor-pointer items-center rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700">
+        <button
+          type="button"
+          className="inline-flex h-8 w-fit items-center rounded border border-black/10 bg-white px-2.5 text-[10px] font-semibold text-slate-700"
+          onClick={() => floorplanFileInputRef.current?.click()}
+          disabled={imageLoadingState.active}
+        >
           Upload
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
-            className="hidden"
-            disabled={imageLoadingState.active}
-            onChange={handleFloorplanFileChange}
-          />
-        </label>
-      </label>
+        </button>
+        <input
+          ref={floorplanFileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
+          className="hidden"
+          disabled={imageLoadingState.active}
+          onChange={handleFloorplanFileChange}
+        />
+      </div>
 
       {imageLoadingState.active ? (
         <div className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-600">
@@ -1944,23 +1952,33 @@ export default function Form({
                     />
                   </label>
 
-                  <label className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-slate-700">
                       Image
                     </span>
-                    <label className="inline-flex w-fit cursor-pointer items-center rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700">
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-fit items-center rounded border border-black/10 bg-white px-2.5 text-[10px] font-semibold text-slate-700"
+                      onClick={() => sceneFileInputRefs.current[index]?.click()}
+                      disabled={imageLoadingState.active}
+                    >
                       Upload
-                      <input
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
-                        className="hidden"
-                        disabled={imageLoadingState.active}
-                        onChange={(event) =>
-                          handleSceneFileChange(index, event)
+                    </button>
+                    <input
+                      ref={(node) => {
+                        if (node) {
+                          sceneFileInputRefs.current[index] = node;
+                        } else {
+                          delete sceneFileInputRefs.current[index];
                         }
-                      />
-                    </label>
-                  </label>
+                      }}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
+                      className="hidden"
+                      disabled={imageLoadingState.active}
+                      onChange={(event) => handleSceneFileChange(index, event)}
+                    />
+                  </div>
 
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-slate-700">
@@ -2080,7 +2098,15 @@ export default function Form({
                     <div className="flex flex-col gap-1">
                       {(hotspotsBySceneIndex[index]?.linkHotspots ?? []).map(
                         (hotspot, hotspotIndex) => {
-                          const targetOptions = derivedScenes;
+                          const targetOptions = derivedScenes.filter(
+                            (candidate) =>
+                              String(candidate.id ?? "").trim().length,
+                          );
+                          const selectedTarget = targetOptions.some(
+                            (candidate) => candidate.id === hotspot.target,
+                          )
+                            ? hotspot.target
+                            : (targetOptions[0]?.id ?? "");
 
                           return (
                             <div
@@ -2090,12 +2116,20 @@ export default function Form({
                               <button
                                 type="button"
                                 className="inline-flex h-7 items-center justify-center rounded border border-black/10 bg-white px-2 text-[10px] font-semibold text-slate-700"
-                                onClick={() =>
+                                onClick={() => {
+                                  if (
+                                    selectedTarget &&
+                                    selectedTarget !== hotspot.target
+                                  ) {
+                                    updateLinkHotspot(index, hotspotIndex, {
+                                      target: selectedTarget,
+                                    });
+                                  }
                                   startLinkHotspotLocationPick(
                                     index,
                                     hotspotIndex,
-                                  )
-                                }
+                                  );
+                                }}
                                 aria-label="Define link hotspot location"
                               >
                                 {linkPickState.sceneIndex === index &&
@@ -2105,7 +2139,7 @@ export default function Form({
                               </button>
                               <select
                                 className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                value={hotspot.target}
+                                value={selectedTarget}
                                 onChange={(e) =>
                                   updateLinkHotspot(index, hotspotIndex, {
                                     target: e.target.value,
@@ -2113,6 +2147,9 @@ export default function Form({
                                 }
                                 aria-label="Link hotspot target"
                               >
+                                {!targetOptions.length ? (
+                                  <option value="">No scenes available</option>
+                                ) : null}
                                 {targetOptions.map((candidate) => (
                                   <option
                                     key={candidate.id}
