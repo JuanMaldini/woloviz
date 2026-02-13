@@ -550,6 +550,7 @@ export default function Form({
   const isProduction = import.meta.env.PROD;
   const autoWriteTimerRef = useRef(null);
   const uploadedObjectUrlsRef = useRef(new Map());
+  const sceneCardRefs = useRef(new Map());
   const floorplanFileInputRef = useRef(null);
   const sceneFileInputRefs = useRef({});
   const sessionIdRef = useRef("");
@@ -668,6 +669,9 @@ export default function Form({
   );
 
   const [expandedSceneIndexes, setExpandedSceneIndexes] = useState([0]);
+  const [activeSceneId, setActiveSceneId] = useState(() =>
+    String(initialData?.scenes?.[0]?.id ?? "").trim(),
+  );
 
   const derivedScenes = useMemo(() => {
     return scenes.map((scene, index) => ({
@@ -774,6 +778,52 @@ export default function Form({
       floorplanPositions,
     });
   }, [onRuntimeDataChange, runtimeViewerData, floorplanPositions]);
+
+  useEffect(() => {
+    const handleActiveSceneChanged = (event) => {
+      const nextSceneId = String(event?.detail?.sceneId ?? "").trim();
+      if (!nextSceneId) {
+        return;
+      }
+      setActiveSceneId(nextSceneId);
+    };
+
+    window.addEventListener(
+      "playground:active-scene-changed",
+      handleActiveSceneChanged,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:active-scene-changed",
+        handleActiveSceneChanged,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeSceneId) {
+      return;
+    }
+
+    const index = derivedScenes.findIndex(
+      (scene) => scene.id === activeSceneId,
+    );
+    if (index < 0) {
+      return;
+    }
+
+    const card = sceneCardRefs.current.get(index);
+    if (!card) {
+      return;
+    }
+
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeSceneId, derivedScenes]);
 
   const resolveSceneImageAssetKey = (sceneIndex, sceneImageUrl, assets) => {
     if (!String(sceneImageUrl ?? "").startsWith("blob:")) {
@@ -1893,7 +1943,14 @@ export default function Form({
           {derivedScenes.map((scene, index) => (
             <div
               key={index}
-              className="rounded-md bg-white p-1 ring-1 ring-black/5"
+              ref={(node) => {
+                if (node) {
+                  sceneCardRefs.current.set(index, node);
+                } else {
+                  sceneCardRefs.current.delete(index);
+                }
+              }}
+              className={`rounded-md bg-white p-1 ring-1 ring-black/5 transition-shadow ${activeSceneId === scene.id ? "outline outline-1 outline-sky-400/70 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]" : ""}`}
             >
               <div className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
                 <div className="min-w-0">

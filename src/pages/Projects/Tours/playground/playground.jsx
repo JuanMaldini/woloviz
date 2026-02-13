@@ -857,6 +857,9 @@ const Playground = () => {
       };
 
       function switchScene(scene, forcedParameters = null) {
+        if (!scene) {
+          return;
+        }
         stopAutorotate();
         const nextParameters =
           forcedParameters ||
@@ -870,6 +873,13 @@ const Playground = () => {
         startAutorotate();
         updateSceneName(scene);
         updateSceneList(scene);
+        window.dispatchEvent(
+          new CustomEvent("playground:active-scene-changed", {
+            detail: {
+              sceneId: String(scene.data?.id ?? ""),
+            },
+          }),
+        );
       }
 
       function updateSceneName(scene) {

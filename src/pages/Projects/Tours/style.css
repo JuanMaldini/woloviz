@@ -1197,6 +1197,14 @@ body.playground-floorplan-contained .floor-plan-modal {
   transition: filter 120ms ease;
 }
 
+.floor-plan-modal .scene .icon {
+  color: #fff;
+}
+
+.floor-plan-modal .scene .icon svg {
+  display: block;
+}
+
 .floor-plan-modal .scene img {
   transition: all 60ms ease;
 }
