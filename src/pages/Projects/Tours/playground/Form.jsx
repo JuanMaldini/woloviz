@@ -30,6 +30,7 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/x-exr",
   "image/exr",
 ]);
+const FLOORPLAN_POSITION_DEFAULT = 0.5;
 
 const createEmptyScene = () => ({
   name: "",
@@ -47,9 +48,36 @@ const createEmptyHotspots = () => ({
 });
 
 const createEmptyFloorplanPosition = () => ({
-  x: 0,
-  y: 0,
+  x: FLOORPLAN_POSITION_DEFAULT,
+  y: FLOORPLAN_POSITION_DEFAULT,
 });
+
+const createDefaultSceneId = (index) => `scene-${index + 1}`;
+
+function buildSceneIds(rawSceneIds, scenesLength) {
+  const nextIds = [];
+  const used = new Set();
+
+  for (let index = 0; index < scenesLength; index += 1) {
+    const raw = String(rawSceneIds?.[index] ?? "").trim();
+    let candidate = raw || createDefaultSceneId(index);
+
+    if (!candidate || used.has(candidate)) {
+      let counter = 1;
+      let generated = `scene-${counter}`;
+      while (used.has(generated)) {
+        counter += 1;
+        generated = `scene-${counter}`;
+      }
+      candidate = generated;
+    }
+
+    used.add(candidate);
+    nextIds.push(candidate);
+  }
+
+  return nextIds;
+}
 
 const createEmptyLinkHotspot = () => ({
   yaw: "",
@@ -63,22 +91,6 @@ const createEmptyInfoHotspot = () => ({
   title: "",
   text: "",
 });
-
-function formatSceneId(name) {
-  const base = String(name ?? "")
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}+/gu, "")
-    .toLowerCase();
-
-  const slug = base
-    .replace(/[^a-z0-9\s-_]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return slug || "scene";
-}
 
 function getDuplicateSceneNameError(scenes) {
   const seen = new Map();
@@ -108,7 +120,7 @@ function clampNumber(value, min, max) {
 function toRelativeFloorplanValue(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return 0;
+    return FLOORPLAN_POSITION_DEFAULT;
   }
   if (n >= 0 && n <= 1) {
     return clampNumber(n, 0, 1);
@@ -370,8 +382,16 @@ function buildOutput({
   const normalizedPositions = scenes
     .map((scene, index) => ({
       id: String(scene.id || "").trim(),
-      x: clampNumber(toNumberOr(floorplanPositions?.[index]?.x, 0), 0, 1),
-      y: clampNumber(toNumberOr(floorplanPositions?.[index]?.y, 0), 0, 1),
+      x: clampNumber(
+        toNumberOr(floorplanPositions?.[index]?.x, FLOORPLAN_POSITION_DEFAULT),
+        0,
+        1,
+      ),
+      y: clampNumber(
+        toNumberOr(floorplanPositions?.[index]?.y, FLOORPLAN_POSITION_DEFAULT),
+        0,
+        1,
+      ),
     }))
     .filter((position) => position.id.length > 0);
 
@@ -574,10 +594,9 @@ export default function Form({
   );
 
   const [sceneIds, setSceneIds] = useState(() =>
-    (initialData?.scenes ?? []).map((scene) =>
-      String(scene.id || "").trim()
-        ? String(scene.id).trim()
-        : formatSceneId(scene.name),
+    buildSceneIds(
+      (initialData?.scenes ?? []).map((scene) => String(scene.id ?? "")),
+      (initialData?.scenes ?? []).length,
     ),
   );
 
@@ -592,8 +611,8 @@ export default function Form({
       const byIndex = initialPositions[index];
       const source = byId ?? byIndex ?? createEmptyFloorplanPosition();
       return {
-        x: toRelativeFloorplanValue(source.x ?? 0),
-        y: toRelativeFloorplanValue(source.y ?? 0),
+        x: toRelativeFloorplanValue(source.x),
+        y: toRelativeFloorplanValue(source.y),
       };
     });
   });
@@ -676,7 +695,7 @@ export default function Form({
   const derivedScenes = useMemo(() => {
     return scenes.map((scene, index) => ({
       ...scene,
-      id: sceneIds[index] ?? formatSceneId(scene.name),
+      id: sceneIds[index] ?? createDefaultSceneId(index),
     }));
   }, [scenes, sceneIds]);
 
@@ -1004,11 +1023,7 @@ export default function Form({
       setClientName(String(savedDraft.clientName ?? ""));
       setClientEmail(String(savedDraft.clientEmail ?? ""));
       setScenes(scenesToUse);
-      setSceneIds(
-        (savedDraft.sceneIds ?? []).length
-          ? savedDraft.sceneIds
-          : scenesToUse.map((scene) => formatSceneId(scene.name)),
-      );
+      setSceneIds(buildSceneIds(savedDraft.sceneIds ?? [], scenesToUse.length));
       setHotspotsBySceneIndex(
         (savedDraft.hotspotsBySceneIndex ?? []).length
           ? savedDraft.hotspotsBySceneIndex
@@ -1027,9 +1042,25 @@ export default function Form({
             })),
       );
       setFloorplanPositions(
-        (savedDraft.floorplanPositions ?? []).length
-          ? savedDraft.floorplanPositions
-          : (initialFloorplanPositions ?? []),
+        scenesToUse.map((scene, index) => {
+          const savedPositions = savedDraft.floorplanPositions ?? [];
+          const initialPositions = initialFloorplanPositions ?? [];
+          const bySavedIndex = savedPositions[index];
+          const byInitialId = initialPositions.find(
+            (position) => position.id === scene.id,
+          );
+          const byInitialIndex = initialPositions[index];
+          const source =
+            bySavedIndex ??
+            byInitialId ??
+            byInitialIndex ??
+            createEmptyFloorplanPosition();
+
+          return {
+            x: toRelativeFloorplanValue(source?.x),
+            y: toRelativeFloorplanValue(source?.y),
+          };
+        }),
       );
       setFloorplanImageUrl(
         restoredFloorplanUrl && restoredFloorplanUrl.length
@@ -1284,14 +1315,6 @@ export default function Form({
     });
   };
 
-  const commitSceneId = (sceneIndex) => {
-    setSceneIds((prev) => {
-      const next = [...prev];
-      next[sceneIndex] = formatSceneId(scenes[sceneIndex]?.name);
-      return next;
-    });
-  };
-
   const mutateSceneHotspots = (sceneIndex, updater) => {
     setHotspotsBySceneIndex((prev) => {
       const next = [...prev];
@@ -1321,8 +1344,18 @@ export default function Form({
   };
 
   const updateLinkHotspot = (sceneIndex, hotspotIndex, patch) => {
+    const currentSceneId = String(derivedScenes?.[sceneIndex]?.id ?? "").trim();
+    const rawTarget = Object.prototype.hasOwnProperty.call(patch, "target")
+      ? String(patch.target ?? "").trim()
+      : null;
+
     const normalizedPatch = {
       ...patch,
+      ...(rawTarget !== null
+        ? {
+            target: rawTarget === currentSceneId ? "" : rawTarget,
+          }
+        : {}),
       ...(Object.prototype.hasOwnProperty.call(patch, "yaw") &&
       patch.yaw !== "" &&
       Number.isFinite(Number(patch.yaw))
@@ -1666,7 +1699,7 @@ export default function Form({
   const addScene = () => {
     const newSceneIndex = scenes.length;
     setScenes((prev) => [...prev, createEmptyScene()]);
-    setSceneIds((prev) => [...prev, formatSceneId("")]);
+    setSceneIds((prev) => buildSceneIds([...prev, ""], prev.length + 1));
     setHotspotsBySceneIndex((prev) => [...prev, createEmptyHotspots()]);
     setFloorplanPositions((prev) => [...prev, createEmptyFloorplanPosition()]);
     setExpandedSceneIndexes([newSceneIndex]);
@@ -1677,7 +1710,7 @@ export default function Form({
 
     if (hasSingleScene) {
       setScenes([createEmptyScene()]);
-      setSceneIds([formatSceneId("")]);
+      setSceneIds([createDefaultSceneId(0)]);
       setHotspotsBySceneIndex([createEmptyHotspots()]);
       setFloorplanPositions([createEmptyFloorplanPosition()]);
       setExpandedSceneIndexes([0]);
@@ -2000,12 +2033,6 @@ export default function Form({
                       onChange={(e) =>
                         updateScene(index, { name: e.target.value })
                       }
-                      onBlur={() => commitSceneId(index)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.currentTarget.blur();
-                        }
-                      }}
                     />
                   </label>
 
@@ -2155,15 +2182,21 @@ export default function Form({
                     <div className="flex flex-col gap-1">
                       {(hotspotsBySceneIndex[index]?.linkHotspots ?? []).map(
                         (hotspot, hotspotIndex) => {
+                          const currentSceneId = String(
+                            derivedScenes[index]?.id ?? "",
+                          ).trim();
                           const targetOptions = derivedScenes.filter(
                             (candidate) =>
                               String(candidate.id ?? "").trim().length,
                           );
-                          const selectedTarget = targetOptions.some(
+                          const selectableTargets = targetOptions.filter(
+                            (candidate) => candidate.id !== currentSceneId,
+                          );
+                          const selectedTarget = selectableTargets.some(
                             (candidate) => candidate.id === hotspot.target,
                           )
                             ? hotspot.target
-                            : (targetOptions[0]?.id ?? "");
+                            : (selectableTargets[0]?.id ?? "");
 
                           return (
                             <div
@@ -2204,13 +2237,14 @@ export default function Form({
                                 }
                                 aria-label="Link hotspot target"
                               >
-                                {!targetOptions.length ? (
-                                  <option value="">No scenes available</option>
+                                {!selectableTargets.length ? (
+                                  <option value="">No target scenes available</option>
                                 ) : null}
                                 {targetOptions.map((candidate) => (
                                   <option
                                     key={candidate.id}
                                     value={candidate.id}
+                                    disabled={candidate.id === currentSceneId}
                                   >
                                     {candidate.id}
                                   </option>

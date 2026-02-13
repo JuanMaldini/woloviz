@@ -1,21 +1,32 @@
 // Generated from /playground
 // Relative positions (0..1) over floorplan image.
 export const floorplanScenePositions = [
-  { id: "scene-name", x: 0.25, y: 0.25 },
+  { id: "scene-1", x: 0.5, y: 0.5 },
+  { id: "scene-2", x: 0.5, y: 0.5 },
 ];
 
 export const data = {
   scenes: [
     {
-      id: "scene-name",
-      name: "scene-name-1",
+      id: "scene-1",
+      name: "1",
       imageUrl: "",
       equirectWidth: 4000,
       initialViewParameters: {
-        pitch: 10,
-        yaw: 90,
-        fov: 100,
+        pitch: 0,
+        yaw: 0,
+        fov: 110,
       },
+      linkHotspots: [
+      ],
+      infoHotspots: [
+      ],
+    },
+    {
+      id: "scene-2",
+      name: "",
+      imageUrl: "",
+      equirectWidth: 4000,
       linkHotspots: [
       ],
       infoHotspots: [
@@ -23,7 +34,7 @@ export const data = {
     }
   ],
   name: "tour-name",
-  floorplanImageUrl: "blob:http://localhost:5173/1711ea30-8670-4e49-8d94-857705e9dbf7",
+  floorplanImageUrl: "blob:http://localhost:5173/37dfd1ff-199a-446e-a889-c3d90c93d743",
   settings: {
     mouseViewMode: "drag",
     autorotateEnabled: false,

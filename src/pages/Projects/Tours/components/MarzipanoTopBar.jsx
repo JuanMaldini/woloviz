@@ -68,7 +68,7 @@ const MarzipanoTopBar = ({
   );
 
   const getMarkerPosition = (sceneId) => {
-    return livePositions[sceneId] ?? positionById[sceneId] ?? { x: 0, y: 0 };
+    return livePositions[sceneId] ?? positionById[sceneId] ?? { x: 0.5, y: 0.5 };
   };
 
   const updateMarkerByPointer = (sceneId, clientX, clientY) => {
@@ -224,16 +224,13 @@ const MarzipanoTopBar = ({
 
   const getMarkerInteractionProps = (sceneId) => {
     if (!enableFloorplanMarkerDrag) {
-      return {
-        onClickCapture: () => setIsFloorplanOpen(false),
-      };
+      return {};
     }
 
     return {
       onPointerDown: (event) => handleMarkerPointerDown(sceneId, event),
       onClickCapture: (event) => {
         handleMarkerClick(sceneId, event);
-        setIsFloorplanOpen(false);
       },
       style: {
         touchAction: "none",
