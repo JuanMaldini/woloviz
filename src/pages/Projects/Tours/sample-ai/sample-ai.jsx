@@ -31,7 +31,7 @@ const data = {
     {
       id: "scene1",
       name: "Scene 1",
-      imageUrl: "/projects/Sampleai/Sample_AI09_01.png  ",
+      imageUrl: "/projects/Sampleai/Sample_AI09_01.png",
       equirectWidth: 4000,
       initialViewParameters: { pitch: -3, yaw: 117, fov: 110 },
       linkHotspots: [
