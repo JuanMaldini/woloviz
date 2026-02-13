@@ -7,7 +7,21 @@ const SETTINGS_DEFAULTS = {
   viewControlButtons: true,
 };
 
+const PRESERVE_CURRENT_VIEW_STORAGE_KEY = "playground:preserve-current-view";
+const RUNTIME_VIEW_STATE_STORAGE_KEY = "playground:current-view-state:v1";
+const AUTOROTATE_ENABLED_STORAGE_KEY = "playground:autorotate-enabled";
+const VIEW_CONTROL_BUTTONS_STORAGE_KEY = "playground:view-control-buttons";
+
 const EQUIRECT_WIDTH_DEFAULT = 4000;
+const SCENE_REQUIRED_ASPECT_RATIO = 2;
+const SCENE_ASPECT_TOLERANCE = 0.08;
+const ALLOWED_IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "exr"]);
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/x-exr",
+  "image/exr",
+]);
 
 const createEmptyScene = () => ({
   name: "",
@@ -79,9 +93,191 @@ function toNumberOr(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function toRelativeFloorplanValue(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  if (n >= 0 && n <= 1) {
+    return clampNumber(n, 0, 1);
+  }
+  return clampNumber(n / 100, 0, 1);
+}
+
+function toFixedNumber(value, decimals) {
+  if (!Number.isFinite(value)) {
+    return value;
+  }
+  return Number(value.toFixed(decimals));
+}
+
+function DraggableNumberInput({
+  value,
+  onChangeValue,
+  min,
+  max,
+  dragStep = 1,
+  wheelStep = 5,
+  className,
+  ariaLabel,
+  placeholder,
+  precision,
+}) {
+  const inputRef = useRef(null);
+  const dragHandleRef = useRef(null);
+  const dragRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startValue: 0,
+    lastAppliedValue: 0,
+  });
+
+  const getCurrentNumeric = () => {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+    return Number.isFinite(Number(min)) ? Number(min) : 0;
+  };
+
+  const clampWithinBounds = (n) => {
+    const minN = Number(min);
+    const maxN = Number(max);
+    if (Number.isFinite(minN) && Number.isFinite(maxN)) {
+      return clampNumber(n, minN, maxN);
+    }
+    return n;
+  };
+
+  const applyNumericValue = (n) => {
+    const clamped = clampWithinBounds(n);
+    if (Number.isFinite(clamped) && Number.isInteger(precision)) {
+      onChangeValue(toFixedNumber(clamped, precision));
+      return;
+    }
+    onChangeValue(clamped);
+  };
+
+  const handleWheel = (event) => {
+    event.preventDefault();
+    const direction = event.deltaY < 0 ? 1 : -1;
+    const current = getCurrentNumeric();
+    applyNumericValue(current + direction * wheelStep);
+  };
+
+  const handlePointerDown = (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    const current = getCurrentNumeric();
+    dragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startValue: current,
+      lastAppliedValue: current,
+    };
+    dragHandleRef.current?.setPointerCapture?.(event.pointerId);
+    inputRef.current?.focus();
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    if (!drag.active) {
+      return;
+    }
+
+    const deltaX = event.clientX - drag.startX;
+    const stepCount = Math.trunc(deltaX / 4);
+    const next = clampWithinBounds(drag.startValue + stepCount * dragStep);
+
+    if (next === drag.lastAppliedValue) {
+      return;
+    }
+
+    drag.lastAppliedValue = next;
+    onChangeValue(next);
+  };
+
+  const endDrag = () => {
+    if (!dragRef.current.active) {
+      return;
+    }
+    dragRef.current.active = false;
+    dragRef.current.pointerId = null;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
+  const handlePointerUp = (event) => {
+    const drag = dragRef.current;
+    if (
+      drag.active &&
+      drag.pointerId !== null &&
+      dragHandleRef.current?.hasPointerCapture?.(drag.pointerId)
+    ) {
+      dragHandleRef.current.releasePointerCapture(drag.pointerId);
+    }
+    endDrag();
+  };
+
+  const handlePointerCancel = () => {
+    endDrag();
+  };
+
+  const handleBlur = () => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return;
+    }
+    applyNumericValue(numeric);
+  };
+
+  return (
+    <div className="relative min-w-0 w-full">
+      <input
+        ref={inputRef}
+        type="text"
+        className={`${className} w-full min-w-0 pr-7`}
+        value={value}
+        onChange={(event) => onChangeValue(event.target.value)}
+        onWheel={handleWheel}
+        onBlur={handleBlur}
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+      />
+      <span
+        ref={dragHandleRef}
+        className="absolute inset-y-0 right-0 flex w-6 items-center justify-center border-l border-black/10 text-[10px] text-slate-500 cursor-ew-resize select-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        title="Drag horizontal ±1"
+        aria-label="Drag to adjust value"
+      >
+        ↔
+      </span>
+    </div>
+  );
+}
+
 function buildSceneSnippet(
   scene,
-  { linkHotspots, infoHotspots, includeInitialViewParameters },
+  {
+    linkHotspots,
+    infoHotspots,
+    includeInitialViewParameters,
+    originalImageFileName,
+  },
 ) {
   const base = {
     id: scene.id,
@@ -99,7 +295,14 @@ function buildSceneSnippet(
   lines.push("{");
   lines.push(`  id: ${JSON.stringify(base.id)},`);
   lines.push(`  name: ${JSON.stringify(base.name)},`);
-  lines.push(`  imageUrl: ${JSON.stringify(base.imageUrl)},`);
+  const cleanOriginalFileName = String(originalImageFileName ?? "")
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+  lines.push(
+    cleanOriginalFileName
+      ? `  imageUrl: ${JSON.stringify(base.imageUrl)}, // original file: ${cleanOriginalFileName}`
+      : `  imageUrl: ${JSON.stringify(base.imageUrl)},`,
+  );
   lines.push(`  equirectWidth: ${base.equirectWidth},`);
   if (includeInitialViewParameters) {
     lines.push("  initialViewParameters: {");
@@ -122,9 +325,10 @@ function buildSceneSnippet(
 
   lines.push("  infoHotspots: [");
   (infoHotspots ?? []).forEach((hotspot) => {
-    const title = String(hotspot.title ?? "").trim();
+    const title = String(hotspot.title ?? "title").trim() || "title";
     const text = String(hotspot.text ?? "").trim();
-    if (!title && !text) {
+    const hasCoords = hotspot.yaw !== "" || hotspot.pitch !== "";
+    if (!text && !hasCoords && !String(hotspot.title ?? "").trim()) {
       return;
     }
     lines.push(
@@ -143,12 +347,23 @@ function buildOutput({
   floorplanImageUrl,
   hotspotsBySceneIndex,
   floorplanPositions,
+  settings,
+  uploadedAssets,
 }) {
+  const runtimeUrlToFileName = new Map(
+    (uploadedAssets ?? [])
+      .filter((asset) => asset?.kind === "scene")
+      .map((asset) => [
+        String(asset.runtimeUrl ?? ""),
+        String(asset.fileName ?? ""),
+      ]),
+  );
+
   const normalizedPositions = scenes
     .map((scene, index) => ({
       id: String(scene.id || "").trim(),
-      x: toNumberOr(floorplanPositions?.[index]?.x, 0),
-      y: toNumberOr(floorplanPositions?.[index]?.y, 0),
+      x: clampNumber(toNumberOr(floorplanPositions?.[index]?.x, 0), 0, 1),
+      y: clampNumber(toNumberOr(floorplanPositions?.[index]?.y, 0), 0, 1),
     }))
     .filter((position) => position.id.length > 0);
 
@@ -159,15 +374,15 @@ function buildOutput({
         infoHotspots: [],
       }),
       includeInitialViewParameters: index === 0,
+      originalImageFileName:
+        runtimeUrlToFileName.get(String(scene.imageUrl ?? "")) || "",
     }),
   );
 
   const lines = [];
 
   lines.push("// Generated from /playground");
-  lines.push(
-    "// Percentage-based positions so markers stay aligned on resize.",
-  );
+  lines.push("// Relative positions (0..1) over floorplan image.");
   lines.push("export const floorplanScenePositions = [");
   if (normalizedPositions.length) {
     normalizedPositions.forEach((p) => {
@@ -194,17 +409,11 @@ function buildOutput({
     `  floorplanImageUrl: ${JSON.stringify(floorplanImageUrl.trim())},`,
   );
   lines.push("  settings: {");
+  lines.push(`    mouseViewMode: ${JSON.stringify(settings.mouseViewMode)},`);
+  lines.push(`    autorotateEnabled: ${Boolean(settings.autorotateEnabled)},`);
+  lines.push(`    fullscreenButton: ${Boolean(settings.fullscreenButton)},`);
   lines.push(
-    `    mouseViewMode: ${JSON.stringify(SETTINGS_DEFAULTS.mouseViewMode)},`,
-  );
-  lines.push(
-    `    autorotateEnabled: ${Boolean(SETTINGS_DEFAULTS.autorotateEnabled)},`,
-  );
-  lines.push(
-    `    fullscreenButton: ${Boolean(SETTINGS_DEFAULTS.fullscreenButton)},`,
-  );
-  lines.push(
-    `    viewControlButtons: ${Boolean(SETTINGS_DEFAULTS.viewControlButtons)},`,
+    `    viewControlButtons: ${Boolean(settings.viewControlButtons)},`,
   );
   lines.push("  },");
   lines.push("};");
@@ -241,6 +450,74 @@ async function copyToClipboard(text) {
   document.body.removeChild(textarea);
 }
 
+function sanitizePathSegment(value) {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}+/gu, "")
+    .replace(/[^a-zA-Z0-9-_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+}
+
+function getFileExtension(filename) {
+  const value = String(filename ?? "");
+  const dotIndex = value.lastIndexOf(".");
+  if (dotIndex < 0) {
+    return "";
+  }
+  return value.slice(dotIndex + 1).toLowerCase();
+}
+
+function isAllowedImageFile(file) {
+  const extension = getFileExtension(file?.name);
+  const mimeType = String(file?.type ?? "").toLowerCase();
+  return (
+    ALLOWED_IMAGE_EXTENSIONS.has(extension) ||
+    ALLOWED_IMAGE_MIME_TYPES.has(mimeType)
+  );
+}
+
+function readImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    const blobUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      const width = Number(image.naturalWidth) || 0;
+      const height = Number(image.naturalHeight) || 0;
+      URL.revokeObjectURL(blobUrl);
+      resolve({ width, height });
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error("Could not read image dimensions"));
+    };
+
+    image.src = blobUrl;
+  });
+}
+
+function buildClientAssetPath({ clientName, filename }) {
+  const safeClient = sanitizePathSegment(clientName) || "cliente";
+  const safeFilename = String(filename ?? "").trim() || "asset";
+  return `/projects/clientes/${safeClient}/${safeFilename}`;
+}
+
+function revokeBlobUrl(url) {
+  if (typeof url !== "string") {
+    return;
+  }
+  if (!url.startsWith("blob:")) {
+    return;
+  }
+  try {
+    URL.revokeObjectURL(url);
+  } catch {}
+}
+
 export default function Form({
   initialData,
   initialFloorplanPositions,
@@ -248,7 +525,11 @@ export default function Form({
 }) {
   const isProduction = import.meta.env.PROD;
   const autoWriteTimerRef = useRef(null);
+  const uploadedObjectUrlsRef = useRef(new Map());
   const [tourName, setTourName] = useState(() => initialData?.name ?? "");
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [uploadedAssets, setUploadedAssets] = useState([]);
 
   const [scenes, setScenes] = useState(() =>
     (initialData?.scenes ?? []).map((scene) => ({
@@ -281,8 +562,8 @@ export default function Form({
       const byIndex = initialPositions[index];
       const source = byId ?? byIndex ?? createEmptyFloorplanPosition();
       return {
-        x: source.x ?? 0,
-        y: source.y ?? 0,
+        x: toRelativeFloorplanValue(source.x ?? 0),
+        y: toRelativeFloorplanValue(source.y ?? 0),
       };
     });
   });
@@ -290,6 +571,52 @@ export default function Form({
   const [floorplanImageUrl, setFloorplanImageUrl] = useState(
     () => initialFloorplanImageUrl,
   );
+  const [preserveCurrentView, setPreserveCurrentView] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    try {
+      return (
+        window.sessionStorage.getItem(PRESERVE_CURRENT_VIEW_STORAGE_KEY) === "1"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [autorotateEnabled, setAutorotateEnabled] = useState(() => {
+    if (typeof window === "undefined") {
+      return Boolean(initialData?.settings?.autorotateEnabled);
+    }
+    try {
+      const saved = window.sessionStorage.getItem(
+        AUTOROTATE_ENABLED_STORAGE_KEY,
+      );
+      if (saved === "1" || saved === "0") {
+        return saved === "1";
+      }
+    } catch {}
+    return Boolean(
+      initialData?.settings?.autorotateEnabled ??
+      SETTINGS_DEFAULTS.autorotateEnabled,
+    );
+  });
+  const [viewControlButtons, setViewControlButtons] = useState(() => {
+    if (typeof window === "undefined") {
+      return Boolean(initialData?.settings?.viewControlButtons ?? true);
+    }
+    try {
+      const saved = window.sessionStorage.getItem(
+        VIEW_CONTROL_BUTTONS_STORAGE_KEY,
+      );
+      if (saved === "1" || saved === "0") {
+        return saved === "1";
+      }
+    } catch {}
+    return Boolean(
+      initialData?.settings?.viewControlButtons ??
+      SETTINGS_DEFAULTS.viewControlButtons,
+    );
+  });
 
   const [hotspotsBySceneIndex, setHotspotsBySceneIndex] = useState(() =>
     (initialData?.scenes ?? []).map((scene) => ({
@@ -307,7 +634,7 @@ export default function Form({
     })),
   );
 
-  const [expandedSceneIndex, setExpandedSceneIndex] = useState(0);
+  const [expandedSceneIndexes, setExpandedSceneIndexes] = useState([0]);
 
   const derivedScenes = useMemo(() => {
     return scenes.map((scene, index) => ({
@@ -322,6 +649,16 @@ export default function Form({
   );
 
   const [copyState, setCopyState] = useState({ state: "idle", message: "" });
+  const [linkPickState, setLinkPickState] = useState({
+    sceneIndex: null,
+    hotspotIndex: null,
+    message: "",
+  });
+  const [infoPickState, setInfoPickState] = useState({
+    sceneIndex: null,
+    hotspotIndex: null,
+    message: "",
+  });
 
   const output = useMemo(
     () =>
@@ -331,6 +668,13 @@ export default function Form({
         floorplanImageUrl,
         hotspotsBySceneIndex,
         floorplanPositions,
+        uploadedAssets,
+        settings: {
+          mouseViewMode: SETTINGS_DEFAULTS.mouseViewMode,
+          autorotateEnabled,
+          fullscreenButton: SETTINGS_DEFAULTS.fullscreenButton,
+          viewControlButtons,
+        },
       }),
     [
       tourName,
@@ -338,8 +682,51 @@ export default function Form({
       floorplanImageUrl,
       hotspotsBySceneIndex,
       floorplanPositions,
+      uploadedAssets,
+      autorotateEnabled,
+      viewControlButtons,
     ],
   );
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        PRESERVE_CURRENT_VIEW_STORAGE_KEY,
+        preserveCurrentView ? "1" : "0",
+      );
+      if (!preserveCurrentView) {
+        window.sessionStorage.removeItem(RUNTIME_VIEW_STATE_STORAGE_KEY);
+      }
+    } catch {}
+
+    window.dispatchEvent(
+      new CustomEvent("playground:preserve-current-view-changed", {
+        detail: { enabled: preserveCurrentView },
+      }),
+    );
+  }, [preserveCurrentView]);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        AUTOROTATE_ENABLED_STORAGE_KEY,
+        autorotateEnabled ? "1" : "0",
+      );
+      window.sessionStorage.setItem(
+        VIEW_CONTROL_BUTTONS_STORAGE_KEY,
+        viewControlButtons ? "1" : "0",
+      );
+    } catch {}
+
+    window.dispatchEvent(
+      new CustomEvent("playground:viewer-settings-changed", {
+        detail: {
+          autorotateEnabled,
+          viewControlButtons,
+        },
+      }),
+    );
+  }, [autorotateEnabled, viewControlButtons]);
 
   const updateScene = (sceneIndex, patch) => {
     setScenes((prev) => {
@@ -349,14 +736,152 @@ export default function Form({
     });
   };
 
+  const registerUploadedAsset = (entry) => {
+    const key = entry.key;
+    const previousUrl = uploadedObjectUrlsRef.current.get(key);
+    if (previousUrl && previousUrl !== entry.runtimeUrl) {
+      revokeBlobUrl(previousUrl);
+    }
+    if (entry.runtimeUrl) {
+      uploadedObjectUrlsRef.current.set(key, entry.runtimeUrl);
+    }
+
+    setUploadedAssets((prev) => {
+      const next = prev.filter((item) => item.key !== key);
+      next.push(entry);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      uploadedObjectUrlsRef.current.forEach((url) => revokeBlobUrl(url));
+      uploadedObjectUrlsRef.current.clear();
+    };
+  }, []);
+
+  const applyUploadedImage = async ({ file, sceneIndex = null, kind }) => {
+    if (!file) {
+      return;
+    }
+
+    if (!isAllowedImageFile(file)) {
+      setCopyState({
+        state: "error",
+        message: "Only JPG, PNG or EXR files are allowed",
+      });
+      return;
+    }
+
+    const extension = getFileExtension(file.name);
+    const isExr = extension === "exr";
+    let dimensions = null;
+
+    if (!isExr) {
+      try {
+        dimensions = await readImageDimensions(file);
+      } catch {
+        setCopyState({
+          state: "error",
+          message: "Could not read image dimensions",
+        });
+        return;
+      }
+    }
+
+    if (kind === "scene" && dimensions) {
+      const ratio = dimensions.width / Math.max(1, dimensions.height);
+      const validRatio =
+        Math.abs(ratio - SCENE_REQUIRED_ASPECT_RATIO) <= SCENE_ASPECT_TOLERANCE;
+
+      if (!validRatio) {
+        setCopyState({
+          state: "error",
+          message: "Panorama image must be close to 2:1 ratio",
+        });
+        return;
+      }
+    }
+
+    const suggestedPath = buildClientAssetPath({
+      clientName,
+      filename: file.name,
+    });
+    const runtimeUrl = URL.createObjectURL(file);
+
+    if (kind === "floorplan") {
+      setFloorplanImageUrl(runtimeUrl);
+    } else if (Number.isInteger(sceneIndex) && sceneIndex >= 0) {
+      updateScene(sceneIndex, { imageUrl: runtimeUrl });
+    }
+
+    registerUploadedAsset({
+      key: `${kind}:${sceneIndex ?? "root"}`,
+      kind,
+      sceneIndex,
+      fileName: file.name,
+      mimeType: file.type,
+      runtimeUrl,
+      suggestedPath,
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
+      uploadedAt: new Date().toISOString(),
+    });
+
+    setCopyState({
+      state: "copied",
+      message: `Loaded temporary file ${file.name}`,
+    });
+  };
+
+  const handleFloorplanFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    await applyUploadedImage({ file, kind: "floorplan" });
+    event.target.value = "";
+  };
+
+  const handleSceneFileChange = async (sceneIndex, event) => {
+    const file = event.target.files?.[0];
+    await applyUploadedImage({ file, sceneIndex, kind: "scene" });
+    event.target.value = "";
+  };
+
   const updateSceneView = (sceneIndex, patch) => {
+    const normalizedPatch =
+      sceneIndex === 0
+        ? {
+            ...patch,
+            ...(Object.prototype.hasOwnProperty.call(patch, "pitch") &&
+            patch.pitch !== "" &&
+            Number.isFinite(Number(patch.pitch))
+              ? {
+                  pitch: clampNumber(Number(patch.pitch), -80, 180),
+                }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(patch, "yaw") &&
+            patch.yaw !== "" &&
+            Number.isFinite(Number(patch.yaw))
+              ? {
+                  yaw: clampNumber(Number(patch.yaw), 0, 359),
+                }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(patch, "fov") &&
+            patch.fov !== "" &&
+            Number.isFinite(Number(patch.fov))
+              ? {
+                  fov: clampNumber(Number(patch.fov), 30, 100),
+                }
+              : {}),
+          }
+        : patch;
+
     setScenes((prev) => {
       const next = [...prev];
       next[sceneIndex] = {
         ...next[sceneIndex],
         initialViewParameters: {
           ...next[sceneIndex].initialViewParameters,
-          ...patch,
+          ...normalizedPatch,
         },
       };
       return next;
@@ -371,70 +896,384 @@ export default function Form({
     });
   };
 
-  const updateHotspotCode = (sceneIndex, patch) => {
+  const mutateSceneHotspots = (sceneIndex, updater) => {
     setHotspotsBySceneIndex((prev) => {
       const next = [...prev];
-      next[sceneIndex] = { ...next[sceneIndex], ...patch };
+      const currentSceneHotspots = next[sceneIndex] ?? createEmptyHotspots();
+      next[sceneIndex] = updater(currentSceneHotspots);
       return next;
     });
   };
 
   const addLinkHotspot = (sceneIndex) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.linkHotspots ?? [];
-    updateHotspotCode(sceneIndex, {
-      linkHotspots: [...current, createEmptyLinkHotspot()],
-    });
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => ({
+      ...currentSceneHotspots,
+      linkHotspots: [
+        ...(currentSceneHotspots.linkHotspots ?? []),
+        createEmptyLinkHotspot(),
+      ],
+    }));
   };
 
   const removeLinkHotspot = (sceneIndex, hotspotIndex) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.linkHotspots ?? [];
-    updateHotspotCode(sceneIndex, {
-      linkHotspots: current.filter((_, index) => index !== hotspotIndex),
-    });
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => ({
+      ...currentSceneHotspots,
+      linkHotspots: (currentSceneHotspots.linkHotspots ?? []).filter(
+        (_, index) => index !== hotspotIndex,
+      ),
+    }));
   };
 
   const updateLinkHotspot = (sceneIndex, hotspotIndex, patch) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.linkHotspots ?? [];
-    const next = [...current];
-    next[hotspotIndex] = { ...next[hotspotIndex], ...patch };
-    updateHotspotCode(sceneIndex, { linkHotspots: next });
+    const normalizedPatch = {
+      ...patch,
+      ...(Object.prototype.hasOwnProperty.call(patch, "yaw") &&
+      patch.yaw !== "" &&
+      Number.isFinite(Number(patch.yaw))
+        ? {
+            yaw: Number(patch.yaw),
+          }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(patch, "pitch") &&
+      patch.pitch !== "" &&
+      Number.isFinite(Number(patch.pitch))
+        ? {
+            pitch: Number(patch.pitch),
+          }
+        : {}),
+    };
+
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => {
+      const nextLinkHotspots = [...(currentSceneHotspots.linkHotspots ?? [])];
+      nextLinkHotspots[hotspotIndex] = {
+        ...nextLinkHotspots[hotspotIndex],
+        ...normalizedPatch,
+      };
+      return {
+        ...currentSceneHotspots,
+        linkHotspots: nextLinkHotspots,
+      };
+    });
   };
 
-  const addInfoHotspot = (sceneIndex) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.infoHotspots ?? [];
-    updateHotspotCode(sceneIndex, {
-      infoHotspots: [...current, createEmptyInfoHotspot()],
+  const startLinkHotspotLocationPick = (sceneIndex, hotspotIndex) => {
+    setLinkPickState({
+      sceneIndex,
+      hotspotIndex,
+      message: "Click on the panorama to place it",
     });
+
+    window.dispatchEvent(
+      new CustomEvent("playground:linkhotspot-pick-start", {
+        detail: { sceneIndex, hotspotIndex },
+      }),
+    );
+  };
+
+  useEffect(() => {
+    const handleLinkPickResult = (event) => {
+      const detail = event?.detail ?? {};
+      const sceneIndex = Number(detail.sceneIndex);
+      const hotspotIndex = Number(detail.hotspotIndex);
+
+      if (!Number.isInteger(sceneIndex) || !Number.isInteger(hotspotIndex)) {
+        return;
+      }
+
+      if (detail.status === "ok") {
+        updateLinkHotspot(sceneIndex, hotspotIndex, {
+          yaw: detail.yaw,
+          pitch: detail.pitch,
+        });
+        setLinkPickState({
+          sceneIndex: null,
+          hotspotIndex: null,
+          message: "",
+        });
+        return;
+      }
+
+      setLinkPickState((prev) => {
+        if (
+          prev.sceneIndex !== sceneIndex ||
+          prev.hotspotIndex !== hotspotIndex
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          message: "Fail, retry",
+        };
+      });
+    };
+
+    window.addEventListener(
+      "playground:linkhotspot-pick-result",
+      handleLinkPickResult,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:linkhotspot-pick-result",
+        handleLinkPickResult,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleLinkHotspotCommit = (event) => {
+      const detail = event?.detail ?? {};
+      const sceneId = String(detail.sceneId ?? "").trim();
+      const hotspotIndex = Number(detail.hotspotIndex);
+
+      if (!sceneId || !Number.isInteger(hotspotIndex)) {
+        return;
+      }
+
+      const sceneIndex = derivedScenes.findIndex(
+        (scene) => scene.id === sceneId,
+      );
+      if (sceneIndex < 0) {
+        return;
+      }
+
+      updateLinkHotspot(sceneIndex, hotspotIndex, {
+        yaw: detail.yaw,
+        pitch: detail.pitch,
+      });
+    };
+
+    window.addEventListener(
+      "playground:linkhotspot-position-commit",
+      handleLinkHotspotCommit,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:linkhotspot-position-commit",
+        handleLinkHotspotCommit,
+      );
+    };
+  }, [derivedScenes]);
+
+  const addInfoHotspot = (sceneIndex) => {
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => ({
+      ...currentSceneHotspots,
+      infoHotspots: [
+        ...(currentSceneHotspots.infoHotspots ?? []),
+        createEmptyInfoHotspot(),
+      ],
+    }));
   };
 
   const removeInfoHotspot = (sceneIndex, hotspotIndex) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.infoHotspots ?? [];
-    updateHotspotCode(sceneIndex, {
-      infoHotspots: current.filter((_, index) => index !== hotspotIndex),
-    });
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => ({
+      ...currentSceneHotspots,
+      infoHotspots: (currentSceneHotspots.infoHotspots ?? []).filter(
+        (_, index) => index !== hotspotIndex,
+      ),
+    }));
   };
 
   const updateInfoHotspot = (sceneIndex, hotspotIndex, patch) => {
-    const current = hotspotsBySceneIndex[sceneIndex]?.infoHotspots ?? [];
-    const next = [...current];
-    next[hotspotIndex] = { ...next[hotspotIndex], ...patch };
-    updateHotspotCode(sceneIndex, { infoHotspots: next });
+    const normalizedPatch = {
+      ...patch,
+      ...(Object.prototype.hasOwnProperty.call(patch, "yaw") &&
+      patch.yaw !== "" &&
+      Number.isFinite(Number(patch.yaw))
+        ? {
+            yaw: Number(patch.yaw),
+          }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(patch, "pitch") &&
+      patch.pitch !== "" &&
+      Number.isFinite(Number(patch.pitch))
+        ? {
+            pitch: Number(patch.pitch),
+          }
+        : {}),
+    };
+    mutateSceneHotspots(sceneIndex, (currentSceneHotspots) => {
+      const nextInfoHotspots = [...(currentSceneHotspots.infoHotspots ?? [])];
+      nextInfoHotspots[hotspotIndex] = {
+        ...nextInfoHotspots[hotspotIndex],
+        ...normalizedPatch,
+      };
+      return {
+        ...currentSceneHotspots,
+        infoHotspots: nextInfoHotspots,
+      };
+    });
   };
 
+  const startInfoHotspotLocationPick = (sceneIndex, hotspotIndex) => {
+    setInfoPickState({
+      sceneIndex,
+      hotspotIndex,
+      message: "Click on the panorama to place it",
+    });
+
+    window.dispatchEvent(
+      new CustomEvent("playground:infohotspot-pick-start", {
+        detail: { sceneIndex, hotspotIndex },
+      }),
+    );
+  };
+
+  useEffect(() => {
+    const handlePickResult = (event) => {
+      const detail = event?.detail ?? {};
+      const sceneIndex = Number(detail.sceneIndex);
+      const hotspotIndex = Number(detail.hotspotIndex);
+
+      if (!Number.isInteger(sceneIndex) || !Number.isInteger(hotspotIndex)) {
+        return;
+      }
+
+      if (detail.status === "ok") {
+        updateInfoHotspot(sceneIndex, hotspotIndex, {
+          yaw: detail.yaw,
+          pitch: detail.pitch,
+        });
+        setInfoPickState({
+          sceneIndex: null,
+          hotspotIndex: null,
+          message: "",
+        });
+        return;
+      }
+
+      setInfoPickState((prev) => {
+        if (
+          prev.sceneIndex !== sceneIndex ||
+          prev.hotspotIndex !== hotspotIndex
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          message: "Fail, retry",
+        };
+      });
+    };
+
+    window.addEventListener(
+      "playground:infohotspot-pick-result",
+      handlePickResult,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:infohotspot-pick-result",
+        handlePickResult,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleInfoHotspotCommit = (event) => {
+      const detail = event?.detail ?? {};
+      const sceneId = String(detail.sceneId ?? "").trim();
+      const hotspotIndex = Number(detail.hotspotIndex);
+
+      if (!sceneId || !Number.isInteger(hotspotIndex)) {
+        return;
+      }
+
+      const sceneIndex = derivedScenes.findIndex(
+        (scene) => scene.id === sceneId,
+      );
+      if (sceneIndex < 0) {
+        return;
+      }
+
+      updateInfoHotspot(sceneIndex, hotspotIndex, {
+        yaw: detail.yaw,
+        pitch: detail.pitch,
+      });
+    };
+
+    window.addEventListener(
+      "playground:infohotspot-position-commit",
+      handleInfoHotspotCommit,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:infohotspot-position-commit",
+        handleInfoHotspotCommit,
+      );
+    };
+  }, [derivedScenes]);
+
   const updateFloorplanPosition = (sceneIndex, patch) => {
+    const normalizedPatch = {
+      ...patch,
+      ...(Object.prototype.hasOwnProperty.call(patch, "x") &&
+      patch.x !== "" &&
+      Number.isFinite(Number(patch.x))
+        ? {
+            x: clampNumber(Number(patch.x), 0, 1),
+          }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(patch, "y") &&
+      patch.y !== "" &&
+      Number.isFinite(Number(patch.y))
+        ? {
+            y: clampNumber(Number(patch.y), 0, 1),
+          }
+        : {}),
+    };
+
     setFloorplanPositions((prev) => {
       const next = [...prev];
-      next[sceneIndex] = { ...next[sceneIndex], ...patch };
+      next[sceneIndex] = { ...next[sceneIndex], ...normalizedPatch };
       return next;
     });
   };
 
+  useEffect(() => {
+    const handleFloorplanCommit = (event) => {
+      const detail = event?.detail;
+      const sceneId = String(detail?.sceneId ?? "").trim();
+      if (!sceneId) {
+        return;
+      }
+
+      const sceneIndex = derivedScenes.findIndex(
+        (scene) => scene.id === sceneId,
+      );
+      if (sceneIndex < 0) {
+        return;
+      }
+
+      updateFloorplanPosition(sceneIndex, {
+        x: detail?.x,
+        y: detail?.y,
+      });
+    };
+
+    window.addEventListener(
+      "playground:floorplan-position-commit",
+      handleFloorplanCommit,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "playground:floorplan-position-commit",
+        handleFloorplanCommit,
+      );
+    };
+  }, [derivedScenes]);
+
   const addScene = () => {
+    const newSceneIndex = scenes.length;
     setScenes((prev) => [...prev, createEmptyScene()]);
     setSceneIds((prev) => [...prev, formatSceneId("")]);
     setHotspotsBySceneIndex((prev) => [...prev, createEmptyHotspots()]);
     setFloorplanPositions((prev) => [...prev, createEmptyFloorplanPosition()]);
-    setExpandedSceneIndex(scenes.length);
+    setExpandedSceneIndexes([newSceneIndex]);
   };
 
   const removeScene = (sceneIndex) => {
@@ -445,7 +1284,7 @@ export default function Form({
       setSceneIds([formatSceneId("")]);
       setHotspotsBySceneIndex([createEmptyHotspots()]);
       setFloorplanPositions([createEmptyFloorplanPosition()]);
-      setExpandedSceneIndex(0);
+      setExpandedSceneIndexes([0]);
       return;
     }
 
@@ -458,22 +1297,20 @@ export default function Form({
       prev.filter((_, index) => index !== sceneIndex),
     );
 
-    setExpandedSceneIndex((prev) => {
-      if (prev === null || prev === undefined) {
-        return 0;
-      }
-      if (prev === sceneIndex) {
-        return Math.max(0, sceneIndex - 1);
-      }
-      if (prev > sceneIndex) {
-        return prev - 1;
-      }
-      return prev;
+    setExpandedSceneIndexes((prev) => {
+      const filtered = (prev ?? []).filter((index) => index !== sceneIndex);
+      return filtered.map((index) => (index > sceneIndex ? index - 1 : index));
     });
   };
 
   const toggleSceneExpanded = (sceneIndex) => {
-    setExpandedSceneIndex((prev) => (prev === sceneIndex ? null : sceneIndex));
+    setExpandedSceneIndexes((prev) => {
+      const current = prev ?? [];
+      if (current.includes(sceneIndex)) {
+        return current.filter((index) => index !== sceneIndex);
+      }
+      return [...current, sceneIndex];
+    });
   };
 
   const writeDataInDev = async (content, notifySuccess = false) => {
@@ -519,7 +1356,7 @@ export default function Form({
               : "Failed to auto-save data.js",
         });
       }
-    }, 150);
+    }, 300);
   };
 
   useEffect(() => {
@@ -532,6 +1369,29 @@ export default function Form({
         setCopyState({ state: "error", message: sceneNameError });
         return;
       }
+
+      const normalizedClientName = String(clientName ?? "").trim();
+      const normalizedClientEmail = String(clientEmail ?? "").trim();
+      if (!normalizedClientName || !normalizedClientEmail) {
+        setCopyState({
+          state: "error",
+          message: "Name and email are required",
+        });
+        return;
+      }
+
+      const integrationPayload = {
+        status: "OK",
+        client: {
+          name: normalizedClientName,
+          email: normalizedClientEmail,
+        },
+        storageBase: `/projects/clientes/${sanitizePathSegment(normalizedClientName) || "cliente"}`,
+        uploadedAssets,
+        generatedAt: new Date().toISOString(),
+      };
+      console.log("OK", integrationPayload);
+
       if (isProduction) {
         downloadTextFile("data.js", output);
         setCopyState({ state: "copied", message: "Downloaded data.js" });
@@ -575,20 +1435,22 @@ export default function Form({
           className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
           value={tourName}
           onChange={(e) => setTourName(e.target.value)}
-          placeholder="Sample AI Tour"
         />
       </label>
 
       <label className="flex flex-col gap-1">
         <span className="text-xs font-semibold tracking-wide text-slate-700">
-          Floorplan image URL
+          Floorplan image
         </span>
-        <input
-          className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-          value={floorplanImageUrl}
-          onChange={(e) => setFloorplanImageUrl(e.target.value)}
-          placeholder="/projects/Sampleai/Floorplan.png"
-        />
+        <label className="inline-flex w-fit cursor-pointer items-center rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700">
+          Upload
+          <input
+            type="file"
+            accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
+            className="hidden"
+            onChange={handleFloorplanFileChange}
+          />
+        </label>
       </label>
 
       <div className="mt-1">
@@ -603,6 +1465,35 @@ export default function Form({
           >
             +
           </button>
+        </div>
+        <div className="mt-1 grid grid-cols-1 gap-1 text-[11px] text-slate-700">
+          <label className="inline-flex items-center gap-1">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border border-black/20"
+              checked={preserveCurrentView}
+              onChange={(event) => setPreserveCurrentView(event.target.checked)}
+            />
+            Preserve current view
+          </label>
+          <label className="inline-flex items-center gap-1">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border border-black/20"
+              checked={autorotateEnabled}
+              onChange={(event) => setAutorotateEnabled(event.target.checked)}
+            />
+            autorotateEnabled
+          </label>
+          <label className="inline-flex items-center gap-1">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border border-black/20"
+              checked={viewControlButtons}
+              onChange={(event) => setViewControlButtons(event.target.checked)}
+            />
+            viewControlButtons
+          </label>
         </div>
         <div className="mt-1 flex flex-col gap-1.5">
           {derivedScenes.map((scene, index) => (
@@ -622,13 +1513,17 @@ export default function Form({
                     className="inline-flex h-5 w-5 items-center justify-center rounded border border-black/10 bg-white text-[11px] font-bold text-slate-700"
                     onClick={() => toggleSceneExpanded(index)}
                     aria-label={
-                      expandedSceneIndex === index
+                      expandedSceneIndexes.includes(index)
                         ? "Collapse scene"
                         : "Expand scene"
                     }
-                    title={expandedSceneIndex === index ? "Collapse" : "Expand"}
+                    title={
+                      expandedSceneIndexes.includes(index)
+                        ? "Collapse"
+                        : "Expand"
+                    }
                   >
-                    {expandedSceneIndex === index ? "−" : "+"}
+                    {expandedSceneIndexes.includes(index) ? "−" : "+"}
                   </button>
                   <button
                     type="button"
@@ -642,7 +1537,7 @@ export default function Form({
                 </div>
               </div>
 
-              {expandedSceneIndex === index ? (
+              {expandedSceneIndexes.includes(index) ? (
                 <div className="grid grid-cols-1 gap-1">
                   <label className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-slate-700">
@@ -660,49 +1555,61 @@ export default function Form({
                           e.currentTarget.blur();
                         }
                       }}
-                      placeholder="Scene 1"
                     />
                   </label>
 
                   <label className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-slate-700">
-                      Image URL
+                      Image
                     </span>
-                    <input
-                      className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                      value={scene.imageUrl}
-                      onChange={(e) =>
-                        updateScene(index, { imageUrl: e.target.value })
-                      }
-                      placeholder="/projects/Sampleai/Sample_AI09_01.jpg"
-                    />
+                    <label className="inline-flex w-fit cursor-pointer items-center rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700">
+                      Upload
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
+                        className="hidden"
+                        onChange={(event) =>
+                          handleSceneFileChange(index, event)
+                        }
+                      />
+                    </label>
                   </label>
 
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-slate-700">
-                      Floorplan position
+                      Minimap position
                     </span>
                     <div className="grid grid-cols-2 gap-1">
-                      <input
+                      <DraggableNumberInput
                         className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                         value={floorplanPositions[index]?.x ?? ""}
-                        onChange={(e) =>
+                        onChangeValue={(nextValue) =>
                           updateFloorplanPosition(index, {
-                            x: e.target.value,
+                            x: nextValue,
                           })
                         }
-                        placeholder="58"
+                        min={0}
+                        max={1}
+                        dragStep={0.01}
+                        wheelStep={0.05}
+                        precision={3}
+                        placeholder="0.58"
                         aria-label="Position x"
                       />
-                      <input
+                      <DraggableNumberInput
                         className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                         value={floorplanPositions[index]?.y ?? ""}
-                        onChange={(e) =>
+                        onChangeValue={(nextValue) =>
                           updateFloorplanPosition(index, {
-                            y: e.target.value,
+                            y: nextValue,
                           })
                         }
-                        placeholder="32"
+                        min={0}
+                        max={1}
+                        dragStep={0.01}
+                        wheelStep={0.05}
+                        precision={3}
+                        placeholder="0.32"
                         aria-label="Position y"
                       />
                     </div>
@@ -713,41 +1620,56 @@ export default function Form({
                       <span className="text-[10px] font-medium text-slate-500">
                         Initial view parameters
                       </span>
-                      <div className="grid grid-cols-3 gap-2">
-                        <label className="flex flex-col gap-0.5">
+                      <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1">
+                        <label className="min-w-0 flex flex-col gap-0.5">
                           <span className="text-[11px] font-semibold text-slate-700">
                             Pitch
                           </span>
-                          <input
+                          <DraggableNumberInput
                             className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                             value={scene.initialViewParameters.pitch}
-                            onChange={(e) =>
-                              updateSceneView(index, { pitch: e.target.value })
+                            onChangeValue={(nextValue) =>
+                              updateSceneView(index, { pitch: nextValue })
                             }
+                            min={-80}
+                            max={180}
+                            wheelStep={5}
+                            dragStep={1}
+                            ariaLabel="Initial pitch"
                           />
                         </label>
-                        <label className="flex flex-col gap-0.5">
+                        <label className="min-w-0 flex flex-col gap-0.5">
                           <span className="text-[11px] font-semibold text-slate-700">
                             Yaw
                           </span>
-                          <input
+                          <DraggableNumberInput
                             className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                             value={scene.initialViewParameters.yaw}
-                            onChange={(e) =>
-                              updateSceneView(index, { yaw: e.target.value })
+                            onChangeValue={(nextValue) =>
+                              updateSceneView(index, { yaw: nextValue })
                             }
+                            min={0}
+                            max={359}
+                            wheelStep={5}
+                            dragStep={1}
+                            ariaLabel="Initial yaw"
                           />
                         </label>
-                        <label className="flex flex-col gap-0.5">
+                        <label className="min-w-0 flex flex-col gap-0.5">
                           <span className="text-[11px] font-semibold text-slate-700">
                             FOV
                           </span>
-                          <input
+                          <DraggableNumberInput
                             className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                             value={scene.initialViewParameters.fov}
-                            onChange={(e) =>
-                              updateSceneView(index, { fov: e.target.value })
+                            onChangeValue={(nextValue) =>
+                              updateSceneView(index, { fov: nextValue })
                             }
+                            min={30}
+                            max={150}
+                            wheelStep={5}
+                            dragStep={1}
+                            ariaLabel="Initial fov"
                           />
                         </label>
                       </div>
@@ -776,30 +1698,24 @@ export default function Form({
                           return (
                             <div
                               key={`link-${index}-${hotspotIndex}`}
-                              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-1"
+                              className="grid grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-1"
                             >
-                              <input
-                                className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                placeholder="yaw"
-                                value={hotspot.yaw}
-                                onChange={(e) =>
-                                  updateLinkHotspot(index, hotspotIndex, {
-                                    yaw: e.target.value,
-                                  })
+                              <button
+                                type="button"
+                                className="inline-flex h-7 items-center justify-center rounded border border-black/10 bg-white px-2 text-[10px] font-semibold text-slate-700"
+                                onClick={() =>
+                                  startLinkHotspotLocationPick(
+                                    index,
+                                    hotspotIndex,
+                                  )
                                 }
-                                aria-label="Link hotspot yaw"
-                              />
-                              <input
-                                className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                placeholder="pitch"
-                                value={hotspot.pitch}
-                                onChange={(e) =>
-                                  updateLinkHotspot(index, hotspotIndex, {
-                                    pitch: e.target.value,
-                                  })
-                                }
-                                aria-label="Link hotspot pitch"
-                              />
+                                aria-label="Define link hotspot location"
+                              >
+                                {linkPickState.sceneIndex === index &&
+                                linkPickState.hotspotIndex === hotspotIndex
+                                  ? "Click to place"
+                                  : "Define location"}
+                              </button>
                               <select
                                 className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                                 value={hotspot.target}
@@ -810,7 +1726,6 @@ export default function Form({
                                 }
                                 aria-label="Link hotspot target"
                               >
-                                <option value="">scene</option>
                                 {targetOptions.map((candidate) => (
                                   <option
                                     key={candidate.id}
@@ -834,6 +1749,11 @@ export default function Form({
                           );
                         },
                       )}
+                      {linkPickState.message ? (
+                        <span className="text-[10px] font-medium text-slate-500">
+                          {linkPickState.message}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -854,35 +1774,27 @@ export default function Form({
                     <div className="flex flex-col gap-1">
                       {(hotspotsBySceneIndex[index]?.infoHotspots ?? []).map(
                         (hotspot, hotspotIndex) => {
-                          const targetOptions = derivedScenes;
-
                           return (
                             <div
                               key={`info-${index}-${hotspotIndex}`}
-                              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_auto] items-center gap-1"
+                              className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-1"
                             >
-                              <input
-                                className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                placeholder="yaw"
-                                value={hotspot.yaw}
-                                onChange={(e) =>
-                                  updateInfoHotspot(index, hotspotIndex, {
-                                    yaw: e.target.value,
-                                  })
+                              <button
+                                type="button"
+                                className="inline-flex h-7 items-center justify-center rounded border border-black/10 bg-white px-2 text-[10px] font-semibold text-slate-700"
+                                onClick={() =>
+                                  startInfoHotspotLocationPick(
+                                    index,
+                                    hotspotIndex,
+                                  )
                                 }
-                                aria-label="Info hotspot yaw"
-                              />
-                              <input
-                                className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                placeholder="pitch"
-                                value={hotspot.pitch}
-                                onChange={(e) =>
-                                  updateInfoHotspot(index, hotspotIndex, {
-                                    pitch: e.target.value,
-                                  })
-                                }
-                                aria-label="Info hotspot pitch"
-                              />
+                                aria-label="Define info hotspot location"
+                              >
+                                {infoPickState.sceneIndex === index &&
+                                infoPickState.hotspotIndex === hotspotIndex
+                                  ? "Click to place"
+                                  : "Define location"}
+                              </button>
                               <input
                                 className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
                                 placeholder="title"
@@ -892,11 +1804,11 @@ export default function Form({
                                     title: e.target.value,
                                   })
                                 }
-                                aria-label="Info hotspot title"
+                                aria-10label="Info hotspot title"
                               />
                               <input
                                 className="min-w-0 rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-                                placeholder="text"
+                                placeholder="description"
                                 value={hotspot.text}
                                 onChange={(e) =>
                                   updateInfoHotspot(index, hotspotIndex, {
@@ -919,6 +1831,11 @@ export default function Form({
                           );
                         },
                       )}
+                      {infoPickState.message ? (
+                        <span className="text-[10px] font-medium text-slate-500">
+                          {infoPickState.message}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -928,29 +1845,45 @@ export default function Form({
         </div>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between gap-3">
-        {/* <label className="flex flex-col gap-1">
+      <div className="mt-1.5 flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold text-slate-700">
-                Email
+              Name *
             </span>
             <input
-                type="email"
-                className="rounded-md border border-black/10 bg-white px-2 py-1.5 text-sm"
-                // value={email}
-                // onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+              className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
+              value={clientName}
+              onChange={(event) => setClientName(event.target.value)}
             />
-            </label> */}
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
-          onClick={onGenerate}
-          disabled={Boolean(sceneNameError)}
-        >
-          Generate data.js
-        </button>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-slate-700">
+              Email *
+            </span>
+            <input
+              type="email"
+              className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
+              value={clientEmail}
+              onChange={(event) => setClientEmail(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+            onClick={onGenerate}
+            disabled={Boolean(sceneNameError)}
+          >
+            Generate data.js
+          </button>
+        </div>
+
         <div className="text-xs text-slate-600" aria-live="polite">
-          {sceneNameError || copyState.message}
+          {sceneNameError ||
+            (copyState.state === "error" ? copyState.message : "")}
         </div>
       </div>
     </div>

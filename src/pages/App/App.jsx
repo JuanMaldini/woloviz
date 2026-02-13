@@ -3,10 +3,16 @@ import Navbar from "../../components/Navbar/Navbar";
 import Footer from "../../components/Footer/Footer";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import "./App.css";
 
 function App() {
   const location = useLocation();
-  const hideFooterOn = new Set(["/sample-ai", "/example", "/samplesvg","/playground"]);
+  const hideFooterOn = new Set([
+    "/sample-ai",
+    "/example",
+    "/samplesvg",
+    "/playground",
+  ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;
   const bodyClass = `flex min-h-0 flex-1 flex-col${shouldHideFooter ? " h-full overflow-hidden" : ""}`;
