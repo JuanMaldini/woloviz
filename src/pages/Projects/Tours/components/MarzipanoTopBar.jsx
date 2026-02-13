@@ -31,6 +31,7 @@ const MarzipanoTopBar = ({
     target: null,
   });
   const [livePositions, setLivePositions] = useState({});
+  const [isFloorplanOpen, setIsFloorplanOpen] = useState(false);
 
   const normalizePositionValue = (value) => {
     const numeric = Number(value);
@@ -223,12 +224,17 @@ const MarzipanoTopBar = ({
 
   const getMarkerInteractionProps = (sceneId) => {
     if (!enableFloorplanMarkerDrag) {
-      return {};
+      return {
+        onClickCapture: () => setIsFloorplanOpen(false),
+      };
     }
 
     return {
       onPointerDown: (event) => handleMarkerPointerDown(sceneId, event),
-      onClickCapture: (event) => handleMarkerClick(sceneId, event),
+      onClickCapture: (event) => {
+        handleMarkerClick(sceneId, event);
+        setIsFloorplanOpen(false);
+      },
       style: {
         touchAction: "none",
         cursor: "grab",
@@ -238,13 +244,6 @@ const MarzipanoTopBar = ({
 
   return (
     <>
-      {showFloorplan && (
-        <input
-          type="checkbox"
-          id="floorPlanToggle"
-          className="floor-plan-toggle"
-        />
-      )}
       <div id="sceneList">
         <ul className="scenes">
           {showFloorplan && (
@@ -261,12 +260,13 @@ const MarzipanoTopBar = ({
           )}
           {showFloorplan && (
             <li className="floor-plan-item">
-              <label
+              <button
+                type="button"
                 className="scene floor-plan-trigger"
-                htmlFor="floorPlanToggle"
+                onClick={() => setIsFloorplanOpen(true)}
               >
                 <span className="text">Floorplan</span>
-              </label>
+              </button>
             </li>
           )}
           {scenes.map((scene) => (
@@ -281,14 +281,15 @@ const MarzipanoTopBar = ({
 
       {showFloorplan && (
         <div
-          className="info-hotspot-modal floor-plan-modal"
+          className={`info-hotspot-modal floor-plan-modal${isFloorplanOpen ? " visible" : ""}`}
           role="dialog"
           aria-modal="true"
           aria-label="Floorplan"
         >
-          <label
+          <button
+            type="button"
             className="floor-plan-backdrop"
-            htmlFor="floorPlanToggle"
+            onClick={() => setIsFloorplanOpen(false)}
             aria-label="Close floor plan"
           />
           <div className="floor-plan-panel">

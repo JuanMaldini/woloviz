@@ -1237,6 +1237,9 @@ body.playground-floorplan-contained .floor-plan-modal {
 .floor-plan-backdrop {
   position: absolute;
   inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
   cursor: pointer;
 }
 
