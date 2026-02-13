@@ -18,8 +18,9 @@ const Playground = () => {
   const [topBarTarget, setTopBarTarget] = useState(null);
   const [isTourInfoModalOpen, setIsTourInfoModalOpen] = useState(false);
   const [runtimeData, setRuntimeData] = useState(data);
-  const [runtimeFloorplanPositions, setRuntimeFloorplanPositions] =
-    useState(floorplanScenePositions);
+  const [runtimeFloorplanPositions, setRuntimeFloorplanPositions] = useState(
+    floorplanScenePositions,
+  );
 
   const activeData = runtimeData ?? data;
   const activeFloorplanPositions =
@@ -28,38 +29,34 @@ const Playground = () => {
   const degToRad = (deg) => (deg * Math.PI) / 180;
   const hotspotPitchSign = -1;
 
-  const assetUrls = useMemo(
-    () => {
-      const floorplanSource =
-        String(activeData?.floorplanImageUrl ?? "") ||
-        "/projects/Sampleai/Floorplan.png";
-      const floorplan = floorplanSource.startsWith("blob:")
-        ? floorplanSource
-        : new URL(floorplanSource, import.meta.url).href;
+  const assetUrls = useMemo(() => {
+    const floorplanSource =
+      String(activeData?.floorplanImageUrl ?? "") ||
+      "/projects/Sampleai/Floorplan.png";
+    const floorplan = floorplanSource.startsWith("blob:")
+      ? floorplanSource
+      : new URL(floorplanSource, import.meta.url).href;
 
-      return {
-        play: new URL("../imgButtons/play.png", import.meta.url).href,
-        pause: new URL("../imgButtons/pause.png", import.meta.url).href,
-        fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url)
-          .href,
-        windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
-        expand: new URL("../imgButtons/expand.png", import.meta.url).href,
-        collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
-        up: new URL("../imgButtons/up.png", import.meta.url).href,
-        down: new URL("../imgButtons/down.png", import.meta.url).href,
-        left: new URL("../imgButtons/left.png", import.meta.url).href,
-        right: new URL("../imgButtons/right.png", import.meta.url).href,
-        plus: new URL("../imgButtons/plus.png", import.meta.url).href,
-        minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-        link: new URL("../imgButtons/location.png", import.meta.url).href,
-        location: new URL("../imgButtons/location.png", import.meta.url).href,
-        floorplan,
-        info: new URL("../imgButtons/info.png", import.meta.url).href,
-        close: new URL("../imgButtons/close.png", import.meta.url).href,
-      };
-    },
-    [activeData?.floorplanImageUrl],
-  );
+    return {
+      play: new URL("../imgButtons/play.png", import.meta.url).href,
+      pause: new URL("../imgButtons/pause.png", import.meta.url).href,
+      fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url).href,
+      windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
+      expand: new URL("../imgButtons/expand.png", import.meta.url).href,
+      collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
+      up: new URL("../imgButtons/up.png", import.meta.url).href,
+      down: new URL("../imgButtons/down.png", import.meta.url).href,
+      left: new URL("../imgButtons/left.png", import.meta.url).href,
+      right: new URL("../imgButtons/right.png", import.meta.url).href,
+      plus: new URL("../imgButtons/plus.png", import.meta.url).href,
+      minus: new URL("../imgButtons/minus.png", import.meta.url).href,
+      link: new URL("../imgButtons/location.png", import.meta.url).href,
+      location: new URL("../imgButtons/location.png", import.meta.url).href,
+      floorplan,
+      info: new URL("../imgButtons/info.png", import.meta.url).href,
+      close: new URL("../imgButtons/close.png", import.meta.url).href,
+    };
+  }, [activeData?.floorplanImageUrl]);
 
   useEffect(() => {
     setTopBarTarget(document.getElementById("marzipanoTopBarSlot"));
@@ -229,15 +226,18 @@ const Playground = () => {
 
       const readPreserveCurrentViewPreference = () => {
         if (typeof window === "undefined") {
-          return false;
+          return true;
         }
         try {
-          return (
-            window.sessionStorage.getItem(PRESERVE_CURRENT_VIEW_STORAGE_KEY) ===
-            "1"
+          const saved = window.sessionStorage.getItem(
+            PRESERVE_CURRENT_VIEW_STORAGE_KEY,
           );
+          if (saved === "1" || saved === "0") {
+            return saved === "1";
+          }
+          return true;
         } catch {
-          return false;
+          return true;
         }
       };
 

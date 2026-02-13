@@ -1,4 +1,13 @@
 import { useMemo, useRef, useState } from "react";
+import {
+  IoChevronBackOutline,
+  IoChevronForwardOutline,
+  IoContractOutline,
+  IoExpandOutline,
+  IoLocation,
+  IoPause,
+  IoPlay,
+} from "react-icons/io5";
 
 //adding fllorplan image
 const MarzipanoTopBar = ({
@@ -9,7 +18,7 @@ const MarzipanoTopBar = ({
   enableFloorplanMarkerDrag = false,
 }) => {
   const DRAG_START_DISTANCE_PX = 12;
-  const floorplanIconSize = 30;
+  const floorplanIconSize = 22;
   const stageRef = useRef(null);
   const suppressClickSceneRef = useRef(null);
   const dragRef = useRef({
@@ -307,13 +316,10 @@ const MarzipanoTopBar = ({
                       aria-label={scene.name}
                       {...getMarkerInteractionProps(scene.id)}
                     >
-                      <img
-                        src={assetUrls.location}
-                        alt=""
-                        width={floorplanIconSize}
-                        height={floorplanIconSize}
-                        loading="lazy"
-                        draggable={false}
+                      <IoLocation
+                        className="icon"
+                        aria-hidden="true"
+                        size={floorplanIconSize}
                       />
                     </button>
                   </li>
@@ -333,8 +339,8 @@ const MarzipanoTopBar = ({
         id="autorotateToggle"
         aria-label="Toggle autorotate"
       >
-        <img className="icon off" src={assetUrls.play} alt="Play" />
-        <img className="icon on" src={assetUrls.pause} alt="Pause" />
+        <IoPlay className="icon off" aria-hidden="true" />
+        <IoPause className="icon on" aria-hidden="true" />
       </button>
 
       <button
@@ -342,13 +348,13 @@ const MarzipanoTopBar = ({
         id="fullscreenToggle"
         aria-label="Toggle fullscreen"
       >
-        <img className="icon off" src={assetUrls.fullscreen} alt="Fullscreen" />
-        <img className="icon on" src={assetUrls.windowed} alt="Windowed" />
+        <IoExpandOutline className="icon off" aria-hidden="true" />
+        <IoContractOutline className="icon on" aria-hidden="true" />
       </button>
 
       <button type="button" id="sceneListToggle" aria-label="Toggle scene list">
-        <img className="icon off" src={assetUrls.expand} alt="Expand" />
-        <img className="icon on" src={assetUrls.collapse} alt="Collapse" />
+        <IoChevronForwardOutline className="icon off" aria-hidden="true" />
+        <IoChevronBackOutline className="icon on" aria-hidden="true" />
       </button>
     </>
   );

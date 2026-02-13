@@ -600,14 +600,18 @@ export default function Form({
   );
   const [preserveCurrentView, setPreserveCurrentView] = useState(() => {
     if (typeof window === "undefined") {
-      return false;
+      return true;
     }
     try {
-      return (
-        window.sessionStorage.getItem(PRESERVE_CURRENT_VIEW_STORAGE_KEY) === "1"
+      const saved = window.sessionStorage.getItem(
+        PRESERVE_CURRENT_VIEW_STORAGE_KEY,
       );
+      if (saved === "1" || saved === "0") {
+        return saved === "1";
+      }
+      return true;
     } catch {
-      return false;
+      return true;
     }
   });
   const [autorotateEnabled, setAutorotateEnabled] = useState(() => {
@@ -676,6 +680,10 @@ export default function Form({
   );
 
   const [copyState, setCopyState] = useState({ state: "idle", message: "" });
+  const [imageLoadingState, setImageLoadingState] = useState({
+    active: false,
+    message: "",
+  });
   const [linkPickState, setLinkPickState] = useState({
     sceneIndex: null,
     hotspotIndex: null,
@@ -1079,85 +1087,95 @@ export default function Form({
       return;
     }
 
-    if (!isAllowedImageFile(file)) {
-      setCopyState({
-        state: "error",
-        message: "Only JPG, PNG or EXR files are allowed",
+    setImageLoadingState({
+      active: true,
+      message: `Loading ${file.name}...`,
+    });
+
+    try {
+      if (!isAllowedImageFile(file)) {
+        setCopyState({
+          state: "error",
+          message: "Only JPG, PNG or EXR files are allowed",
+        });
+        return;
+      }
+
+      const extension = getFileExtension(file.name);
+      const isExr = extension === "exr";
+      let dimensions = null;
+
+      if (!isExr) {
+        try {
+          dimensions = await readImageDimensions(file);
+        } catch {
+          setCopyState({
+            state: "error",
+            message: "Could not read image dimensions",
+          });
+          return;
+        }
+      }
+
+      if (kind === "scene" && dimensions) {
+        const ratio = dimensions.width / Math.max(1, dimensions.height);
+        const validRatio =
+          Math.abs(ratio - SCENE_REQUIRED_ASPECT_RATIO) <=
+          SCENE_ASPECT_TOLERANCE;
+
+        if (!validRatio) {
+          setCopyState({
+            state: "error",
+            message: "Panorama image must be close to 2:1 ratio",
+          });
+          return;
+        }
+      }
+
+      const suggestedPath = buildClientAssetPath({
+        clientName,
+        filename: file.name,
       });
-      return;
-    }
+      const runtimeUrl = URL.createObjectURL(file);
+      const sessionId =
+        sessionIdRef.current || getOrCreatePlaygroundSessionId() || "";
+      sessionIdRef.current = sessionId;
+      const persistedBlobId = isProduction
+        ? await savePlaygroundImageBlob({
+            sessionId,
+            kind,
+            sceneIndex,
+            file,
+          })
+        : "";
 
-    const extension = getFileExtension(file.name);
-    const isExr = extension === "exr";
-    let dimensions = null;
-
-    if (!isExr) {
-      try {
-        dimensions = await readImageDimensions(file);
-      } catch {
-        setCopyState({
-          state: "error",
-          message: "Could not read image dimensions",
-        });
-        return;
+      if (kind === "floorplan") {
+        setFloorplanImageUrl(runtimeUrl);
+      } else if (Number.isInteger(sceneIndex) && sceneIndex >= 0) {
+        updateScene(sceneIndex, { imageUrl: runtimeUrl });
       }
+
+      registerUploadedAsset({
+        key: `${kind}:${sceneIndex ?? "root"}`,
+        kind,
+        sceneIndex,
+        fileName: file.name,
+        mimeType: file.type,
+        runtimeUrl,
+        persistedBlobId,
+        suggestedPath,
+        width: dimensions?.width ?? null,
+        height: dimensions?.height ?? null,
+        uploadedAt: new Date().toISOString(),
+      });
+
+      setCopyState({
+        state: "copied",
+        message: `Loaded temporary file ${file.name}`,
+      });
+    } finally {
+      setImageLoadingState({ active: false, message: "" });
     }
-
-    if (kind === "scene" && dimensions) {
-      const ratio = dimensions.width / Math.max(1, dimensions.height);
-      const validRatio =
-        Math.abs(ratio - SCENE_REQUIRED_ASPECT_RATIO) <= SCENE_ASPECT_TOLERANCE;
-
-      if (!validRatio) {
-        setCopyState({
-          state: "error",
-          message: "Panorama image must be close to 2:1 ratio",
-        });
-        return;
-      }
-    }
-
-    const suggestedPath = buildClientAssetPath({
-      clientName,
-      filename: file.name,
-    });
-    const runtimeUrl = URL.createObjectURL(file);
-    const sessionId =
-      sessionIdRef.current || getOrCreatePlaygroundSessionId() || "";
-    sessionIdRef.current = sessionId;
-    const persistedBlobId = isProduction
-      ? await savePlaygroundImageBlob({
-          sessionId,
-          kind,
-          sceneIndex,
-          file,
-        })
-      : "";
-
-    if (kind === "floorplan") {
-      setFloorplanImageUrl(runtimeUrl);
-    } else if (Number.isInteger(sceneIndex) && sceneIndex >= 0) {
-      updateScene(sceneIndex, { imageUrl: runtimeUrl });
-    }
-
-    registerUploadedAsset({
-      key: `${kind}:${sceneIndex ?? "root"}`,
-      kind,
-      sceneIndex,
-      fileName: file.name,
-      mimeType: file.type,
-      runtimeUrl,
-      persistedBlobId,
-      suggestedPath,
-      width: dimensions?.width ?? null,
-      height: dimensions?.height ?? null,
-      uploadedAt: new Date().toISOString(),
-    });
-
-    setCopyState({
-      state: "copied",
-      message: `Loaded temporary file ${file.name}`,
-    });
   };
 
   const handleFloorplanFileChange = async (event) => {
@@ -1808,10 +1826,18 @@ export default function Form({
             type="file"
             accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
             className="hidden"
+            disabled={imageLoadingState.active}
             onChange={handleFloorplanFileChange}
           />
         </label>
       </label>
+
+      {imageLoadingState.active ? (
+        <div className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-600">
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+          <span>{imageLoadingState.message || "Loading image..."}</span>
+        </div>
+      ) : null}
 
       <div className="mt-1">
         <div className="flex items-center justify-between gap-2 text-xs font-bold tracking-wide text-slate-700">
@@ -1928,6 +1954,7 @@ export default function Form({
                         type="file"
                         accept=".jpg,.jpeg,.png,.exr,image/jpeg,image/png,image/x-exr,image/exr"
                         className="hidden"
+                        disabled={imageLoadingState.active}
                         onChange={(event) =>
                           handleSceneFileChange(index, event)
                         }
