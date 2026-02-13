@@ -378,10 +378,6 @@ const SampleAI = () => {
 
   const degToRad = (deg) => (deg * Math.PI) / 180;
   const hotspotPitchSign = -1;
-  const debugTag = "[SampleAI][ProdDebug]";
-  const debugLog = (...args) => console.log(debugTag, ...args);
-  const debugWarn = (...args) => console.warn(debugTag, ...args);
-  const debugError = (...args) => console.error(debugTag, ...args);
 
   const assetUrls = useMemo(
     () => ({
@@ -406,20 +402,10 @@ const SampleAI = () => {
   );
 
   useEffect(() => {
-    const topBarSlot = document.getElementById("marzipanoTopBarSlot");
-    setTopBarTarget(topBarSlot);
-    debugLog("boot", {
-      href: window.location.href,
-      mode: import.meta.env.MODE,
-      baseUrl: import.meta.env.BASE_URL,
-      floorplanUrl: assetUrls.floorplan,
-      topBarSlotFound: Boolean(topBarSlot),
-      sceneCount: data.scenes.length,
-    });
+    setTopBarTarget(document.getElementById("marzipanoTopBarSlot"));
 
     const root = rootRef.current;
     if (!root) {
-      debugWarn("root-ref-missing");
       return undefined;
     }
 
@@ -455,11 +441,6 @@ const SampleAI = () => {
           `script[data-marzipano="${id}"]`,
         );
         if (existing) {
-          debugLog("script-existing", {
-            id,
-            src: existing.getAttribute("src"),
-            loaded: existing.dataset.loaded === "true",
-          });
           if (existing.dataset.loaded === "true") {
             resolve();
           } else {
@@ -472,24 +453,15 @@ const SampleAI = () => {
         script.src = src;
         script.async = true;
         script.dataset.marzipano = id;
-        debugLog("script-inject", { id, src });
         script.addEventListener(
           "load",
           () => {
             script.dataset.loaded = "true";
-            debugLog("script-loaded", { id, src });
             resolve();
           },
           { once: true },
         );
-        script.addEventListener(
-          "error",
-          (event) => {
-            debugError("script-load-error", { id, src, event });
-            reject(event);
-          },
-          { once: true },
-        );
+        script.addEventListener("error", reject, { once: true });
         document.head.appendChild(script);
       });
 
@@ -506,7 +478,7 @@ const SampleAI = () => {
           "screenfull",
         );
       } catch (error) {
-        debugError("failed-to-load-marzipano-scripts", error);
+        console.error("Failed to load Marzipano scripts", error);
         return;
       }
 
@@ -518,7 +490,7 @@ const SampleAI = () => {
       const screenfull = window.screenfull;
 
       if (!Marzipano) {
-        debugError("marzipano-missing-on-window");
+        console.error("Marzipano is not available on window");
         return;
       }
 
@@ -535,19 +507,7 @@ const SampleAI = () => {
       const fullscreenToggleElement =
         document.querySelector("#fullscreenToggle");
 
-      debugLog("ui-elements", {
-        panoElement: Boolean(panoElement),
-        sceneNameElement: Boolean(sceneNameElement),
-        sceneListElement: Boolean(sceneListElement),
-        sceneElements: sceneElements.length,
-        sceneListToggleElement: Boolean(sceneListToggleElement),
-        sceneListCloseElement: Boolean(sceneListCloseElement),
-        autorotateToggleElement: Boolean(autorotateToggleElement),
-        fullscreenToggleElement: Boolean(fullscreenToggleElement),
-      });
-
       if (!panoElement) {
-        debugError("pano-element-missing");
         return;
       }
 
@@ -589,12 +549,6 @@ const SampleAI = () => {
       const viewer = new Marzipano.Viewer(panoElement, viewerOpts);
 
       const scenes = data.scenes.map((sceneData) => {
-        debugLog("scene-config", {
-          id: sceneData.id,
-          imageUrl: sceneData.imageUrl,
-          linkHotspots: sceneData.linkHotspots.length,
-          infoHotspots: sceneData.infoHotspots.length,
-        });
         const source = Marzipano.ImageUrlSource.fromString(sceneData.imageUrl);
         const geometry = new Marzipano.EquirectGeometry([
           { width: sceneData.equirectWidth || 4000 },
@@ -697,14 +651,7 @@ const SampleAI = () => {
           `.scene[data-id="${scene.data.id}"]`,
         );
         elements.forEach((el) => {
-          el.addEventListener("click", (event) => {
-            debugLog("scene-button-click", {
-              targetScene: scene.data.id,
-              className: el.className,
-              source: event.currentTarget?.closest(".floor-plan-modal")
-                ? "floorplan"
-                : "scene-list-or-other",
-            });
+          el.addEventListener("click", () => {
             switchScene(scene);
             if (document.body.classList.contains("mobile")) {
               hideSceneList();
@@ -832,15 +779,9 @@ const SampleAI = () => {
 
       function switchScene(scene) {
         stopAutorotate();
-        const previousSceneId = activeScene?.data?.id ?? null;
         const nextParameters = activeScene
           ? activeScene.view.parameters()
           : getInitialViewParameters(scene);
-        debugLog("switch-scene", {
-          from: previousSceneId,
-          to: scene?.data?.id,
-          nextParameters,
-        });
         scene.view.setParameters(nextParameters);
         scene.scene.switchTo();
         activeScene = scene;
@@ -919,17 +860,8 @@ const SampleAI = () => {
         icon.style.setProperty("--hotspot-rotation", `${rotation}rad`);
 
         wrapper.addEventListener("click", () => {
-          debugLog("hotspot-click", {
-            from: activeScene?.data?.id ?? null,
-            target: hotspot.target,
-            yaw: hotspot.yaw,
-            pitch: hotspot.pitch,
-          });
           const targetScene = findSceneById(hotspot.target);
           if (!targetScene) {
-            debugWarn("hotspot-target-not-found", {
-              target: hotspot.target,
-            });
             return;
           }
           switchScene(targetScene);
@@ -1055,14 +987,12 @@ const SampleAI = () => {
       }
 
       switchScene(scenes[0]);
-      debugLog("initial-scene-switched", { sceneId: scenes[0]?.data?.id });
     };
 
     init();
 
     return () => {
       disposed = true;
-      debugLog("cleanup-start");
       const toggleEl = document.querySelector("#sceneListToggle");
       const closeEl = document.querySelector(
         '.scene-list-close[data-action="close-scene-list"]',
@@ -1076,7 +1006,6 @@ const SampleAI = () => {
       bodyClasses.forEach((className) => body.classList.remove(className));
       body.classList.remove("marzipano-navbar");
       infoModals.forEach((modal) => modal.remove());
-      debugLog("cleanup-done");
     };
   }, [assetUrls]);
 
