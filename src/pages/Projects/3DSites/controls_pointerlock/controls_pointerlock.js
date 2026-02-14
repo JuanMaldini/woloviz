@@ -12,6 +12,12 @@ function Controls_PointerLock() {
     const container = containerRef.current;
     const blocker = blockerRef.current;
     const instructions = instructionsRef.current;
+    const isTouchDevice =
+      window.matchMedia("(pointer: coarse)").matches ||
+      navigator.maxTouchPoints > 0;
+    const canUsePointerLock =
+      typeof document.body.requestPointerLock === "function" && !isTouchDevice;
+    let touchNavigationStarted = false;
 
     if (!container || !blocker || !instructions) {
       return undefined;
@@ -57,6 +63,128 @@ function Controls_PointerLock() {
     const gltfLoader = new GLTFLoader();
     const sampleGlbUrl = new URL("./sample.glb", import.meta.url).href;
     const targetModelHeight = 24;
+    const tapRaycaster = new THREE.Raycaster();
+    const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const tapPointer = new THREE.Vector2();
+    const tapPoint = new THREE.Vector3();
+    const mobileTeleport = {
+      active: false,
+      startX: 0,
+      startZ: 0,
+      endX: 0,
+      endZ: 0,
+      startTime: 0,
+      duration: 450,
+    };
+    const touchLook = {
+      active: false,
+      pointerId: null,
+      lastX: 0,
+      lastY: 0,
+      yaw: 0,
+      pitch: 0,
+      sensitivity: 0.003,
+      maxPitch: Math.PI / 2 - 0.05,
+    };
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    const isPointBlocked = (x, y, z) => {
+      playerCollider.center.set(x, y, z);
+      return obstacleBoxes.some((obstacle) =>
+        obstacle.intersectsSphere(playerCollider),
+      );
+    };
+
+    const startSmoothTeleport = (targetX, targetZ) => {
+      const currentY = controls.object.position.y;
+
+      if (isPointBlocked(targetX, currentY, targetZ)) {
+        return;
+      }
+
+      mobileTeleport.active = true;
+      mobileTeleport.startX = controls.object.position.x;
+      mobileTeleport.startZ = controls.object.position.z;
+      mobileTeleport.endX = targetX;
+      mobileTeleport.endZ = targetZ;
+      mobileTeleport.startTime = performance.now();
+      velocity.x = 0;
+      velocity.z = 0;
+    };
+
+    const onPointerDown = (event) => {
+      if (!controls.isLocked && !touchNavigationStarted) {
+        return;
+      }
+
+      const now = performance.now();
+      const elapsed = now - lastTapTime;
+      const dx = event.clientX - lastTapX;
+      const dy = event.clientY - lastTapY;
+      const isNear = dx * dx + dy * dy <= 32 * 32;
+      const isDoubleTap = elapsed > 0 && elapsed < 320 && isNear;
+
+      lastTapTime = now;
+      lastTapX = event.clientX;
+      lastTapY = event.clientY;
+
+      if (!isDoubleTap) {
+        return;
+      }
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      tapPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      tapPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      tapRaycaster.setFromCamera(tapPointer, camera);
+
+      if (tapRaycaster.ray.intersectPlane(navigationPlane, tapPoint)) {
+        startSmoothTeleport(tapPoint.x, tapPoint.z);
+        return;
+      }
+
+      if (touchNavigationStarted && event.pointerType === "touch") {
+        touchLook.active = true;
+        touchLook.pointerId = event.pointerId;
+        touchLook.lastX = event.clientX;
+        touchLook.lastY = event.clientY;
+      }
+    };
+
+    const onPointerMove = (event) => {
+      if (!touchLook.active || touchLook.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const dx = event.clientX - touchLook.lastX;
+      const dy = event.clientY - touchLook.lastY;
+      touchLook.lastX = event.clientX;
+      touchLook.lastY = event.clientY;
+
+      touchLook.yaw -= dx * touchLook.sensitivity;
+      touchLook.pitch -= dy * touchLook.sensitivity;
+      touchLook.pitch = THREE.MathUtils.clamp(
+        touchLook.pitch,
+        -touchLook.maxPitch,
+        touchLook.maxPitch,
+      );
+
+      controls.object.rotation.y = touchLook.yaw;
+      camera.rotation.x = touchLook.pitch;
+    };
+
+    const stopTouchLook = (event) => {
+      if (
+        touchLook.pointerId !== null &&
+        touchLook.pointerId !== event.pointerId
+      ) {
+        return;
+      }
+      touchLook.active = false;
+      touchLook.pointerId = null;
+    };
 
     camera = new THREE.PerspectiveCamera(
       75,
@@ -76,8 +204,25 @@ function Controls_PointerLock() {
 
     controls = new PointerLockControls(camera, document.body);
 
-    const onInstructionsClick = () => {
-      controls.lock();
+    const onInstructionsClick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (canUsePointerLock) {
+        try {
+          const result = controls.lock();
+          if (result && typeof result.catch === "function") {
+            result.catch(() => {});
+          }
+        } catch {
+          // Ignore lock errors; unlock event handles UI state.
+        }
+        return;
+      }
+
+      touchNavigationStarted = true;
+      instructions.style.display = "none";
+      blocker.style.display = "none";
     };
 
     const onLock = () => {
@@ -91,10 +236,18 @@ function Controls_PointerLock() {
     };
 
     instructions.addEventListener("click", onInstructionsClick);
+    instructions.addEventListener("pointerdown", onInstructionsClick);
     controls.addEventListener("lock", onLock);
     controls.addEventListener("unlock", onUnlock);
 
+    if (!canUsePointerLock) {
+      instructions.innerHTML = "Tap to start";
+    }
+
     scene.add(controls.object);
+    camera.rotation.order = "YXZ";
+    touchLook.yaw = controls.object.rotation.y;
+    touchLook.pitch = camera.rotation.x;
 
     const onKeyDown = (event) => {
       switch (event.code) {
@@ -295,6 +448,12 @@ function Controls_PointerLock() {
       undefined,
       (error) => {
         console.error("Error loading sample.glb", error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (/Unexpected token|not valid JSON/i.test(message)) {
+          console.error(
+            "sample.glb parece inválido en deploy (posible puntero de Git LFS en lugar del binario real).",
+          );
+        }
       },
     );
 
@@ -304,7 +463,36 @@ function Controls_PointerLock() {
     renderer.setAnimationLoop(() => {
       const time = performance.now();
 
-      if (controls.isLocked) {
+      if (mobileTeleport.active) {
+        const t = Math.min(
+          (time - mobileTeleport.startTime) / mobileTeleport.duration,
+          1,
+        );
+        const eased = t * (2 - t);
+        const nextX = THREE.MathUtils.lerp(
+          mobileTeleport.startX,
+          mobileTeleport.endX,
+          eased,
+        );
+        const nextZ = THREE.MathUtils.lerp(
+          mobileTeleport.startZ,
+          mobileTeleport.endZ,
+          eased,
+        );
+        const currentY = controls.object.position.y;
+
+        if (isPointBlocked(nextX, currentY, nextZ)) {
+          mobileTeleport.active = false;
+        } else {
+          controls.object.position.x = nextX;
+          controls.object.position.z = nextZ;
+          if (t >= 1) {
+            mobileTeleport.active = false;
+          }
+        }
+      }
+
+      if (controls.isLocked || touchNavigationStarted) {
         raycaster.ray.origin.copy(controls.object.position);
         raycaster.ray.origin.y -= 10;
 
@@ -372,6 +560,12 @@ function Controls_PointerLock() {
     });
 
     container.appendChild(renderer.domElement);
+    container.addEventListener("pointerdown", onPointerDown, { passive: true });
+    container.addEventListener("pointermove", onPointerMove, { passive: true });
+    container.addEventListener("pointerup", stopTouchLook, { passive: true });
+    container.addEventListener("pointercancel", stopTouchLook, {
+      passive: true,
+    });
 
     const onWindowResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -383,9 +577,14 @@ function Controls_PointerLock() {
 
     return () => {
       window.removeEventListener("resize", onWindowResize);
+      container.removeEventListener("pointerdown", onPointerDown);
+      container.removeEventListener("pointermove", onPointerMove);
+      container.removeEventListener("pointerup", stopTouchLook);
+      container.removeEventListener("pointercancel", stopTouchLook);
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("keyup", onKeyUp);
       instructions.removeEventListener("click", onInstructionsClick);
+      instructions.removeEventListener("pointerdown", onInstructionsClick);
       controls.removeEventListener("lock", onLock);
       controls.removeEventListener("unlock", onUnlock);
 
@@ -415,6 +614,7 @@ function Controls_PointerLock() {
         height: "100%",
         position: "relative",
         overflow: "hidden",
+        touchAction: "none",
       },
     },
     React.createElement(
