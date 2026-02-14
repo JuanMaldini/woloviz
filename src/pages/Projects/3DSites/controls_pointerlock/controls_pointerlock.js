@@ -3,6 +3,21 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+const PLAYER_GROUND_Y = 10;
+const PLAYER_SPAWN = new THREE.Vector3(40, PLAYER_GROUND_Y, -25);
+const MODEL_POSITION_OFFSET = new THREE.Vector3(0, 0.75, 0);
+const PLAYER_INITIAL_YAW = THREE.MathUtils.degToRad(120);
+const PLAYER_INITIAL_PITCH = THREE.MathUtils.degToRad(-5);
+const PLAYER_COLLIDER_RADIUS = 1.2;
+const PLAYER_COLLIDER_CENTER_Y_OFFSET =
+  PLAYER_GROUND_Y - PLAYER_COLLIDER_RADIUS;
+const PLAYER_STEP_HEIGHT = 0.8;
+const COLLISION_MIN_HEIGHT = 1.0;
+const COLLISION_MAX_WALKABLE_THICKNESS = 1.2;
+const COLLISION_MAX_OBSTACLE_SPAN = 28;
+const ENABLE_MODEL_COLLISIONS = true;
+const LOOK_MAX_DELTA_PER_EVENT = 35;
+
 function Controls_PointerLock() {
   const containerRef = useRef(null);
   const blockerRef = useRef(null);
@@ -45,9 +60,15 @@ function Controls_PointerLock() {
     const vertex = new THREE.Vector3();
     const color = new THREE.Color();
     const previousPosition = new THREE.Vector3();
-    const playerCollider = new THREE.Sphere(new THREE.Vector3(), 4);
+    const playerCollider = new THREE.Sphere(
+      new THREE.Vector3(),
+      PLAYER_COLLIDER_RADIUS,
+    );
+    const setPlayerColliderCenter = (x, y, z) => {
+      playerCollider.center.set(x, y - PLAYER_COLLIDER_CENTER_Y_OFFSET, z);
+    };
     const isCollidingLaterally = () => {
-      playerCollider.center.set(
+      setPlayerColliderCenter(
         controls.object.position.x,
         controls.object.position.y,
         controls.object.position.z,
@@ -62,7 +83,7 @@ function Controls_PointerLock() {
     const disposableGeometries = [];
     const gltfLoader = new GLTFLoader();
     const sampleGlbUrl = new URL("./sample.glb", import.meta.url).href;
-    const targetModelHeight = 24;
+    const targetModelHeight = 42;
     const tapRaycaster = new THREE.Raycaster();
     const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const tapPointer = new THREE.Vector2();
@@ -81,17 +102,47 @@ function Controls_PointerLock() {
       pointerId: null,
       lastX: 0,
       lastY: 0,
-      yaw: 0,
-      pitch: 0,
       sensitivity: 0.003,
       maxPitch: Math.PI / 2 - 0.05,
     };
+    const lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
     let lastTapTime = 0;
     let lastTapX = 0;
     let lastTapY = 0;
 
+    const applyLookDelta = (deltaX, deltaY) => {
+      lookEuler.setFromQuaternion(camera.quaternion);
+      lookEuler.y -= deltaX * touchLook.sensitivity;
+      lookEuler.x -= deltaY * touchLook.sensitivity;
+      lookEuler.x = THREE.MathUtils.clamp(
+        lookEuler.x,
+        -touchLook.maxPitch,
+        touchLook.maxPitch,
+      );
+      camera.quaternion.setFromEuler(lookEuler);
+    };
+
+    const onMouseMoveLocked = (event) => {
+      if (!controls || !controls.isLocked) {
+        return;
+      }
+
+      const deltaX = THREE.MathUtils.clamp(
+        event.movementX || 0,
+        -LOOK_MAX_DELTA_PER_EVENT,
+        LOOK_MAX_DELTA_PER_EVENT,
+      );
+      const deltaY = THREE.MathUtils.clamp(
+        event.movementY || 0,
+        -LOOK_MAX_DELTA_PER_EVENT,
+        LOOK_MAX_DELTA_PER_EVENT,
+      );
+
+      applyLookDelta(deltaX, deltaY);
+    };
+
     const isPointBlocked = (x, y, z) => {
-      playerCollider.center.set(x, y, z);
+      setPlayerColliderCenter(x, y, z);
       return obstacleBoxes.some((obstacle) =>
         obstacle.intersectsSphere(playerCollider),
       );
@@ -112,6 +163,73 @@ function Controls_PointerLock() {
       mobileTeleport.startTime = performance.now();
       velocity.x = 0;
       velocity.z = 0;
+    };
+
+    const tryStepUp = () => {
+      if (velocity.y > 0) {
+        return false;
+      }
+
+      const originalY = controls.object.position.y;
+      controls.object.position.y = originalY + PLAYER_STEP_HEIGHT;
+
+      if (isCollidingLaterally()) {
+        controls.object.position.y = originalY;
+        return false;
+      }
+
+      velocity.y = 0;
+      canJump = true;
+      return true;
+    };
+
+    const shouldRegisterObstacle = (box) => {
+      if (!box || box.isEmpty()) {
+        return false;
+      }
+
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      const looksLikeEnclosingHull =
+        size.x > COLLISION_MAX_OBSTACLE_SPAN ||
+        size.z > COLLISION_MAX_OBSTACLE_SPAN;
+
+      if (looksLikeEnclosingHull) {
+        return false;
+      }
+
+      const looksLikeFlatWalkableSurface =
+        size.y <= COLLISION_MAX_WALKABLE_THICKNESS &&
+        size.x > size.y * 4 &&
+        size.z > size.y * 4;
+
+      if (looksLikeFlatWalkableSurface) {
+        return false;
+      }
+
+      if (size.y < COLLISION_MIN_HEIGHT) {
+        return false;
+      }
+
+      const spawnColliderCenter = new THREE.Vector3(
+        PLAYER_SPAWN.x,
+        PLAYER_SPAWN.y - PLAYER_COLLIDER_CENTER_Y_OFFSET,
+        PLAYER_SPAWN.z,
+      );
+      const closestToSpawn = box.clampPoint(
+        spawnColliderCenter,
+        new THREE.Vector3(),
+      );
+      const spawnTouchesObstacle =
+        closestToSpawn.distanceTo(spawnColliderCenter) <=
+        PLAYER_COLLIDER_RADIUS + 0.15;
+
+      if (spawnTouchesObstacle) {
+        return false;
+      }
+
+      return true;
     };
 
     const onPointerDown = (event) => {
@@ -161,17 +279,7 @@ function Controls_PointerLock() {
       const dy = event.clientY - touchLook.lastY;
       touchLook.lastX = event.clientX;
       touchLook.lastY = event.clientY;
-
-      touchLook.yaw -= dx * touchLook.sensitivity;
-      touchLook.pitch -= dy * touchLook.sensitivity;
-      touchLook.pitch = THREE.MathUtils.clamp(
-        touchLook.pitch,
-        -touchLook.maxPitch,
-        touchLook.maxPitch,
-      );
-
-      controls.object.rotation.y = touchLook.yaw;
-      camera.rotation.x = touchLook.pitch;
+      applyLookDelta(dx, dy);
     };
 
     const stopTouchLook = (event) => {
@@ -191,7 +299,7 @@ function Controls_PointerLock() {
       1,
       1000,
     );
-    camera.position.y = 10;
+    camera.position.copy(PLAYER_SPAWN);
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
@@ -202,6 +310,7 @@ function Controls_PointerLock() {
     scene.add(light);
 
     controls = new PointerLockControls(camera, document.body);
+    controls.pointerSpeed = 0;
 
     const onInstructionsClick = (event) => {
       event.preventDefault();
@@ -234,7 +343,6 @@ function Controls_PointerLock() {
       instructions.style.display = "";
     };
 
-    instructions.addEventListener("click", onInstructionsClick);
     instructions.addEventListener("pointerdown", onInstructionsClick);
     controls.addEventListener("lock", onLock);
     controls.addEventListener("unlock", onUnlock);
@@ -244,9 +352,11 @@ function Controls_PointerLock() {
     }
 
     scene.add(controls.object);
+    controls.object.position.copy(PLAYER_SPAWN);
     camera.rotation.order = "YXZ";
-    touchLook.yaw = controls.object.rotation.y;
-    touchLook.pitch = camera.rotation.x;
+    controls.object.rotation.order = "YXZ";
+    lookEuler.set(PLAYER_INITIAL_PITCH, PLAYER_INITIAL_YAW, 0, "YXZ");
+    camera.quaternion.setFromEuler(lookEuler);
 
     const onKeyDown = (event) => {
       switch (event.code) {
@@ -302,6 +412,7 @@ function Controls_PointerLock() {
 
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
+    document.addEventListener("mousemove", onMouseMoveLocked);
 
     raycaster = new THREE.Raycaster(
       new THREE.Vector3(),
@@ -425,35 +536,30 @@ function Controls_PointerLock() {
         model.position.x -= modelCenter.x;
         model.position.z -= modelCenter.z;
         model.position.y -= modelBox.min.y;
+        model.position.add(MODEL_POSITION_OFFSET);
 
         scene.add(model);
         model.updateMatrixWorld(true);
 
         obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
 
-        model.traverse((node) => {
-          if (!node.isMesh) {
-            return;
-          }
-
-          if (node.geometry) {
-            const box = new THREE.Box3().setFromObject(node);
-            if (!box.isEmpty()) {
-              obstacleBoxes.push(box);
+        if (ENABLE_MODEL_COLLISIONS) {
+          model.traverse((node) => {
+            if (!node.isMesh) {
+              return;
             }
-          }
-        });
-      },
-      undefined,
-      (error) => {
-        console.error("Error loading sample.glb", error);
-        const message = error instanceof Error ? error.message : String(error);
-        if (/Unexpected token|not valid JSON/i.test(message)) {
-          console.error(
-            "sample.glb parece inválido en deploy (posible puntero de Git LFS en lugar del binario real).",
-          );
+
+            if (node.geometry) {
+              const box = new THREE.Box3().setFromObject(node);
+              if (shouldRegisterObstacle(box)) {
+                obstacleBoxes.push(box);
+              }
+            }
+          });
         }
       },
+      undefined,
+      () => {},
     );
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -528,9 +634,13 @@ function Controls_PointerLock() {
           controls.moveRight(moveRightDelta);
 
           if (isCollidingLaterally()) {
-            controls.object.position.x = previousPosition.x;
-            controls.object.position.z = previousPosition.z;
-            velocity.x = 0;
+            const stepped = tryStepUp();
+            if (!stepped) {
+              controls.object.position.x = previousPosition.x;
+              controls.object.position.z = previousPosition.z;
+              controls.object.position.y = previousPosition.y;
+              velocity.x = 0;
+            }
           }
         }
 
@@ -539,17 +649,21 @@ function Controls_PointerLock() {
           controls.moveForward(moveForwardDelta);
 
           if (isCollidingLaterally()) {
-            controls.object.position.x = previousPosition.x;
-            controls.object.position.z = previousPosition.z;
-            velocity.z = 0;
+            const stepped = tryStepUp();
+            if (!stepped) {
+              controls.object.position.x = previousPosition.x;
+              controls.object.position.z = previousPosition.z;
+              controls.object.position.y = previousPosition.y;
+              velocity.z = 0;
+            }
           }
         }
 
         controls.object.position.y += velocity.y * delta;
 
-        if (controls.object.position.y < 10) {
+        if (controls.object.position.y < PLAYER_GROUND_Y) {
           velocity.y = 0;
-          controls.object.position.y = 10;
+          controls.object.position.y = PLAYER_GROUND_Y;
           canJump = false;
         }
       }
@@ -582,7 +696,7 @@ function Controls_PointerLock() {
       container.removeEventListener("pointercancel", stopTouchLook);
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("keyup", onKeyUp);
-      instructions.removeEventListener("click", onInstructionsClick);
+      document.removeEventListener("mousemove", onMouseMoveLocked);
       instructions.removeEventListener("pointerdown", onInstructionsClick);
       controls.removeEventListener("lock", onLock);
       controls.removeEventListener("unlock", onUnlock);

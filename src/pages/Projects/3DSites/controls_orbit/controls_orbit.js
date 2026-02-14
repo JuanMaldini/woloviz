@@ -3,6 +3,21 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+const HIDDEN_OBJECT_NAMES = ["Cieloraso"];
+const HIDDEN_OBJECT_PREFIXES = [];
+
+function shouldHideObject(objectName) {
+  if (!objectName) {
+    return false;
+  }
+
+  if (HIDDEN_OBJECT_NAMES.includes(objectName)) {
+    return true;
+  }
+
+  return HIDDEN_OBJECT_PREFIXES.some((prefix) => objectName.startsWith(prefix));
+}
+
 function Controls_Orbit() {
   const containerRef = useRef(null);
 
@@ -72,6 +87,23 @@ function Controls_Orbit() {
         (gltf) => {
           const model = gltf.scene;
           loadedModel = model;
+          let texturedMaterialCount = 0;
+          let hiddenObjectCount = 0;
+
+          model.traverse((node) => {
+            if (shouldHideObject(node.name)) {
+              node.visible = false;
+              hiddenObjectCount += 1;
+            }
+          });
+
+          if (hiddenObjectCount > 0) {
+            console.info("[controls_orbit] hidden objects", {
+              count: hiddenObjectCount,
+              names: HIDDEN_OBJECT_NAMES,
+              prefixes: HIDDEN_OBJECT_PREFIXES,
+            });
+          }
 
           model.traverse((node) => {
             if (!node.isMesh) {
@@ -86,15 +118,44 @@ function Controls_Orbit() {
 
             if (Array.isArray(node.material)) {
               node.material.forEach((materialItem) => {
+                if (
+                  materialItem.map ||
+                  materialItem.normalMap ||
+                  materialItem.roughnessMap ||
+                  materialItem.metalnessMap ||
+                  materialItem.emissiveMap ||
+                  materialItem.aoMap ||
+                  materialItem.alphaMap
+                ) {
+                  texturedMaterialCount += 1;
+                }
                 materialItem.side = THREE.DoubleSide;
                 materialItem.needsUpdate = true;
               });
               return;
             }
 
+            if (
+              node.material.map ||
+              node.material.normalMap ||
+              node.material.roughnessMap ||
+              node.material.metalnessMap ||
+              node.material.emissiveMap ||
+              node.material.aoMap ||
+              node.material.alphaMap
+            ) {
+              texturedMaterialCount += 1;
+            }
+
             node.material.side = THREE.DoubleSide;
             node.material.needsUpdate = true;
           });
+
+          if (texturedMaterialCount === 0) {
+            console.warn(
+              "[controls_orbit] El GLB no reporta mapas de textura en sus materiales; se renderiza con materiales base.",
+            );
+          }
 
           const modelBox = new THREE.Box3().setFromObject(model);
           const modelSize = new THREE.Vector3();
