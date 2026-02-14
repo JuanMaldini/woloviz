@@ -73,6 +73,29 @@ function Controls_Orbit() {
           const model = gltf.scene;
           loadedModel = model;
 
+          model.traverse((node) => {
+            if (!node.isMesh) {
+              return;
+            }
+
+            node.frustumCulled = false;
+
+            if (!node.material) {
+              return;
+            }
+
+            if (Array.isArray(node.material)) {
+              node.material.forEach((materialItem) => {
+                materialItem.side = THREE.DoubleSide;
+                materialItem.needsUpdate = true;
+              });
+              return;
+            }
+
+            node.material.side = THREE.DoubleSide;
+            node.material.needsUpdate = true;
+          });
+
           const modelBox = new THREE.Box3().setFromObject(model);
           const modelSize = new THREE.Vector3();
           modelBox.getSize(modelSize);
@@ -106,8 +129,10 @@ function Controls_Orbit() {
           const finalBox = new THREE.Box3().setFromObject(model);
           const finalCenter = new THREE.Vector3();
           const finalSize = new THREE.Vector3();
+          const finalSphere = new THREE.Sphere();
           finalBox.getCenter(finalCenter);
           finalBox.getSize(finalSize);
+          finalBox.getBoundingSphere(finalSphere);
 
           console.info("[controls_orbit] final model transform", {
             position: {
@@ -119,17 +144,22 @@ function Controls_Orbit() {
             size: { x: finalSize.x, y: finalSize.y, z: finalSize.z },
           });
 
-          const radius =
-            Math.max(finalSize.x, finalSize.y, finalSize.z) * 0.75 || 10;
-          const distance = radius * 2.5;
-          camera.position.set(distance, distance * 0.8, distance);
+          const radius = Math.max(finalSphere.radius, 1);
+          const distance = radius * 2.2;
+          const viewDirection = new THREE.Vector3(1, 0.7, 1).normalize();
+          const cameraPosition = finalCenter
+            .clone()
+            .add(viewDirection.multiplyScalar(distance));
+
+          camera.position.copy(cameraPosition);
           camera.near = 0.1;
-          camera.far = Math.max(5000, distance * 20);
+          camera.far = Math.max(5000, distance * 40);
           camera.updateProjectionMatrix();
 
-          controls.target.set(finalCenter.x, finalCenter.y, finalCenter.z);
-          controls.minDistance = Math.max(1, radius * 0.2);
-          controls.maxDistance = Math.max(100, radius * 10);
+          controls.target.copy(finalCenter);
+          controls.minDistance = Math.max(0.5, radius * 0.15);
+          controls.maxDistance = Math.max(100, radius * 20);
+          camera.lookAt(finalCenter);
           controls.update();
 
           console.info("[controls_orbit] camera/target", {
