@@ -384,6 +384,7 @@ const SampleAI = () => {
     () => ({
       floorplan: new URL("/projects/Sampleai/Floorplan.png", import.meta.url)
         .href,
+      close: new URL("../imgButtons/close.png", import.meta.url).href,
     }),
     [],
   );
@@ -896,10 +897,9 @@ const SampleAI = () => {
 
         const closeWrapper = document.createElement("div");
         closeWrapper.classList.add("info-hotspot-close-wrapper");
-        const closeIcon = document.createElement("span");
+        const closeIcon = document.createElement("img");
+        closeIcon.src = assetUrls.close;
         closeIcon.classList.add("info-hotspot-close-icon");
-        closeIcon.textContent = "×";
-        closeIcon.setAttribute("aria-hidden", "true");
         closeWrapper.appendChild(closeIcon);
 
         header.appendChild(iconWrapper);
