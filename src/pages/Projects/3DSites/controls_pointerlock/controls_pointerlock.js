@@ -119,6 +119,13 @@ function Controls_PointerLock() {
         return;
       }
 
+      if (touchNavigationStarted && event.pointerType === "touch") {
+        touchLook.active = true;
+        touchLook.pointerId = event.pointerId;
+        touchLook.lastX = event.clientX;
+        touchLook.lastY = event.clientY;
+      }
+
       const now = performance.now();
       const elapsed = now - lastTapTime;
       const dx = event.clientX - lastTapX;
@@ -142,14 +149,6 @@ function Controls_PointerLock() {
 
       if (tapRaycaster.ray.intersectPlane(navigationPlane, tapPoint)) {
         startSmoothTeleport(tapPoint.x, tapPoint.z);
-        return;
-      }
-
-      if (touchNavigationStarted && event.pointerType === "touch") {
-        touchLook.active = true;
-        touchLook.pointerId = event.pointerId;
-        touchLook.lastX = event.clientX;
-        touchLook.lastY = event.clientY;
       }
     };
 
