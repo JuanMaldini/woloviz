@@ -21,8 +21,6 @@ const PRESERVE_CURRENT_VIEW_STORAGE_KEY = "playground:preserve-current-view";
 const RUNTIME_VIEW_STATE_STORAGE_KEY = "playground:current-view-state:v1";
 const AUTOROTATE_ENABLED_STORAGE_KEY = "playground:autorotate-enabled";
 const VIEW_CONTROL_BUTTONS_STORAGE_KEY = "playground:view-control-buttons";
-const PLAYGROUND_FLOORPLAN_SOURCE_MODE = "input";
-const PLAYGROUND_FIXED_FLOORPLAN_SOURCE = "/projects/Sampleai/Floorplan.png";
 
 const Playground = () => {
   const rootRef = useRef(null);
@@ -41,11 +39,9 @@ const Playground = () => {
   const hotspotPitchSign = -1;
 
   const assetUrls = useMemo(() => {
-    const inputFloorplanSource = String(activeData?.floorplanImageUrl ?? "");
     const floorplanSource =
-      PLAYGROUND_FLOORPLAN_SOURCE_MODE === "input"
-        ? inputFloorplanSource || PLAYGROUND_FIXED_FLOORPLAN_SOURCE
-        : PLAYGROUND_FIXED_FLOORPLAN_SOURCE;
+      String(activeData?.floorplanImageUrl ?? "") ||
+      "/projects/Sampleai/Floorplan.png";
     const floorplan = floorplanSource.startsWith("blob:")
       ? floorplanSource
       : new URL(floorplanSource, import.meta.url).href;
