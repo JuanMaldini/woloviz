@@ -838,6 +838,9 @@ body.single-scene #sceneListToggle {
 .info-hotspot .info-hotspot-icon-wrapper {
   width: 40px;
   height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mobile .info-hotspot .info-hotspot-icon-wrapper {
@@ -846,9 +849,20 @@ body.single-scene #sceneListToggle {
 }
 
 .info-hotspot .info-hotspot-icon {
-  width: 90%;
-  height: 90%;
-  margin: 5%;
+  width: 72%;
+  height: 72%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.info-hotspot .info-hotspot-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  color: #fff;
 }
 
 .info-hotspot .info-hotspot-title-wrapper {
@@ -892,6 +906,7 @@ body.single-scene #sceneListToggle {
 .info-hotspot .info-hotspot-title {
   display: inline-block;
   vertical-align: middle;
+  color: #fff;
 
   -moz-user-select: text;
   -webkit-user-select: text;
@@ -905,6 +920,9 @@ body.single-scene #sceneListToggle {
   top: 0;
   height: 40px;
   width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-top-right-radius: 5px;
   background-color: rgb(78, 88, 104);
   visibility: hidden;
@@ -944,9 +962,15 @@ body.single-scene #sceneListToggle {
 }
 
 .info-hotspot .info-hotspot-close-icon {
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.info-hotspot img.info-hotspot-close-icon {
   width: 70%;
   height: 70%;
-  margin: 15%;
+  margin: 0;
 }
 
 .info-hotspot .info-hotspot-text {
@@ -984,6 +1008,7 @@ body.single-scene #sceneListToggle {
   -webkit-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  color: #fff;
 }
 
 .desktop .info-hotspot.visible .info-hotspot-text {
@@ -1075,6 +1100,10 @@ body.single-scene #sceneListToggle {
   margin: 5%;
 }
 
+.info-hotspot-modal .info-hotspot-icon svg {
+  color: #fff;
+}
+
 .info-hotspot-modal .info-hotspot-title-wrapper {
   position: absolute;
   top: 0;
@@ -1095,6 +1124,7 @@ body.single-scene #sceneListToggle {
 .info-hotspot-modal .info-hotspot-title {
   display: inline-block;
   vertical-align: middle;
+  color: #fff;
 
   -moz-user-select: text;
   -webkit-user-select: text;
@@ -1108,15 +1138,24 @@ body.single-scene #sceneListToggle {
   right: 0;
   width: 50px;
   height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: rgb(78, 88, 104);
   background-color: rgba(78, 88, 104, 0.8);
   cursor: pointer;
 }
 
 .info-hotspot-modal .info-hotspot-close-icon {
+  color: #fff;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.info-hotspot-modal img.info-hotspot-close-icon {
   width: 70%;
   height: 70%;
-  margin: 15%;
+  margin: 0;
 }
 
 .info-hotspot-modal .info-hotspot-text {
@@ -1137,6 +1176,7 @@ body.single-scene #sceneListToggle {
   -webkit-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  color: #fff;
 }
 
 .floor-plan-modal {

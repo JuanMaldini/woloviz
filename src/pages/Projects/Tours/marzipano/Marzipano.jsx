@@ -7,6 +7,7 @@ import {
   IoChevronDown,
   IoChevronForward,
   IoChevronUp,
+  IoInformationCircleOutline,
   IoRemove,
 } from "react-icons/io5";
 import bowser from "bowser";
@@ -130,19 +131,6 @@ const Marzipano = () => {
 
   const assetUrls = useMemo(
     () => ({
-      play: new URL("../imgButtons/play.png", import.meta.url).href,
-      pause: new URL("../imgButtons/pause.png", import.meta.url).href,
-      fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url).href,
-      windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
-      expand: new URL("../imgButtons/expand.png", import.meta.url).href,
-      collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
-      up: new URL("../imgButtons/up.png", import.meta.url).href,
-      down: new URL("../imgButtons/down.png", import.meta.url).href,
-      left: new URL("../imgButtons/left.png", import.meta.url).href,
-      right: new URL("../imgButtons/right.png", import.meta.url).href,
-      plus: new URL("../imgButtons/plus.png", import.meta.url).href,
-      minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-      info: new URL("../imgButtons/info.png", import.meta.url).href,
       close: new URL("../imgButtons/close.png", import.meta.url).href,
     }),
     [],
@@ -611,9 +599,15 @@ const Marzipano = () => {
 
         const iconWrapper = document.createElement("div");
         iconWrapper.classList.add("info-hotspot-icon-wrapper");
-        const icon = document.createElement("img");
-        icon.src = assetUrls.info;
+        const icon = document.createElement("div");
         icon.classList.add("info-hotspot-icon");
+        icon.innerHTML = renderToStaticMarkup(
+          <IoInformationCircleOutline
+            aria-hidden="true"
+            focusable="false"
+            style={{ width: "100%", height: "100%" }}
+          />,
+        );
         iconWrapper.appendChild(icon);
 
         const titleWrapper = document.createElement("div");
