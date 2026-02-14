@@ -372,6 +372,12 @@ const data = {
   },
 };
 
+const SAMPLE_AI_FLOORPLAN_MODE = "production";
+const SAMPLE_AI_FLOORPLAN_SOURCES = {
+  production: "https://www.woloviz.com/projects/Sampleai/Floorplan.png",
+  development: "/projects/Sampleai/Floorplan.png",
+};
+
 const SampleAI = () => {
   const rootRef = useRef(null);
   const [topBarTarget, setTopBarTarget] = useState(null);
@@ -380,24 +386,33 @@ const SampleAI = () => {
   const hotspotPitchSign = -1;
 
   const assetUrls = useMemo(
-    () => ({
-      play: new URL("../imgButtons/play.png", import.meta.url).href,
-      pause: new URL("../imgButtons/pause.png", import.meta.url).href,
-      fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url).href,
-      windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
-      expand: new URL("../imgButtons/expand.png", import.meta.url).href,
-      collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
-      up: new URL("../imgButtons/up.png", import.meta.url).href,
-      down: new URL("../imgButtons/down.png", import.meta.url).href,
-      left: new URL("../imgButtons/left.png", import.meta.url).href,
-      right: new URL("../imgButtons/right.png", import.meta.url).href,
-      plus: new URL("../imgButtons/plus.png", import.meta.url).href,
-      minus: new URL("../imgButtons/minus.png", import.meta.url).href,
-      floorplan: new URL("/projects/Sampleai/Floorplan.png", import.meta.url)
-        .href,
-      info: new URL("../imgButtons/info.png", import.meta.url).href,
-      close: new URL("../imgButtons/close.png", import.meta.url).href,
-    }),
+    () => {
+      const selectedFloorplanSource =
+        SAMPLE_AI_FLOORPLAN_SOURCES[SAMPLE_AI_FLOORPLAN_MODE] ||
+        SAMPLE_AI_FLOORPLAN_SOURCES.development;
+      const floorplan = /^https?:\/\//i.test(selectedFloorplanSource)
+        ? selectedFloorplanSource
+        : new URL(selectedFloorplanSource, import.meta.url).href;
+
+      return {
+        play: new URL("../imgButtons/play.png", import.meta.url).href,
+        pause: new URL("../imgButtons/pause.png", import.meta.url).href,
+        fullscreen: new URL("../imgButtons/fullscreen.png", import.meta.url)
+          .href,
+        windowed: new URL("../imgButtons/windowed.png", import.meta.url).href,
+        expand: new URL("../imgButtons/expand.png", import.meta.url).href,
+        collapse: new URL("../imgButtons/collapse.png", import.meta.url).href,
+        up: new URL("../imgButtons/up.png", import.meta.url).href,
+        down: new URL("../imgButtons/down.png", import.meta.url).href,
+        left: new URL("../imgButtons/left.png", import.meta.url).href,
+        right: new URL("../imgButtons/right.png", import.meta.url).href,
+        plus: new URL("../imgButtons/plus.png", import.meta.url).href,
+        minus: new URL("../imgButtons/minus.png", import.meta.url).href,
+        floorplan,
+        info: new URL("../imgButtons/info.png", import.meta.url).href,
+        close: new URL("../imgButtons/close.png", import.meta.url).href,
+      };
+    },
     [],
   );
 
