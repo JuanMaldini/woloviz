@@ -10,6 +10,8 @@ import AccessGate from "../pages/segurity/AccessGate";
 import ProtectedRoute from "./ProtectedRoute";
 import About from "../pages/About/About";
 import Playground from "../pages/Projects/Tours/playground/playground";
+import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit/controls_orbit";
+import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock/controls_pointerlock";
 
 const AppRoutes = () => {
   return (
@@ -31,6 +33,11 @@ const AppRoutes = () => {
       {/*TOUR*/}
       <Route path="/sample-ai" element={<SampleAI />} />
       <Route path="/example" element={<Marzipano />} />
+
+      {/*3D WEBSITES*/}
+      <Route path="/controls_orbit" element={<Controls_Orbit />} />
+      <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
+
 
       <Route path="*" element={<NotFound />} />
     </Routes>
