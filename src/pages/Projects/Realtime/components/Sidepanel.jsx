@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { sendCustomCommand } from "../E3DS/utils/e3ds-messaging";
+import { sendCustomCommand } from "./E3DS/utils/e3ds-messaging";
 
 const SECTIONS = [
   {

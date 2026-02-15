@@ -340,6 +340,7 @@ function Controls_PointerLock() {
     scene.background = new THREE.Color(0xffffff);
     scene.fog = new THREE.Fog(0xffffff, 0, 750);
     const overrideMaterial = createOverrideMaterial({
+      // enabled: false,
       enabled: POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE,
       grayValue: 180,
     });

@@ -15,10 +15,10 @@ import ProtectedRoute from "./ProtectedRoute";
 
 import Playground from "../pages/Projects/Tours/playground/playground";
 
-import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit/controls_orbit";
-import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock/controls_pointerlock";
+import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
+import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
-import MenuModal from "../pages/Projects/3DSites/menu-modal/menu-modal";
+import MenuModal from "../pages/Projects/3DSites/components/menu-modal";
 
 const AppRoutes = () => {
   return (
