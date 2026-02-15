@@ -5,12 +5,23 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   createOverrideMaterial,
   OVERRIDE_MATERIAL_ENABLED,
-} from "../components/override material";
+} from "../components/override_material";
 import LoadingDebugBar from "../components/LoadingDebugBar";
 
 const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
+const RAW_CLOUDFRONT_URL = (import.meta.env.VITE_CLOUDFRONT_URL ?? "").trim();
+const CLOUDFRONT_URL_WITH_PROTOCOL = /^https?:\/\//i.test(RAW_CLOUDFRONT_URL)
+  ? RAW_CLOUDFRONT_URL
+  : RAW_CLOUDFRONT_URL
+    ? `https://${RAW_CLOUDFRONT_URL.replace(/^\/+/, "")}`
+    : "";
+const NORMALIZED_CLOUDFRONT_URL = CLOUDFRONT_URL_WITH_PROTOCOL.replace(
+  /\/+$/,
+  "",
+);
+const NOISELESS_GLB_URL = `${NORMALIZED_CLOUDFRONT_URL}/models/noiseless.glb`;
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
@@ -49,7 +60,7 @@ function Controls_Orbit() {
 
     let loadedModel = null;
     const gltfLoader = new GLTFLoader();
-    const sampleGlbCandidates = ["/projects/Sampleai/noiseless.glb"];
+    const sampleGlbCandidates = [NOISELESS_GLB_URL];
     const targetModelHeight = 24;
 
     const scene = new THREE.Scene();
@@ -76,7 +87,9 @@ function Controls_Orbit() {
       window.matchMedia("(pointer: coarse)").matches ||
       navigator.maxTouchPoints > 0;
     const renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
-    renderer.setPixelRatio(isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(
+      isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2),
+    );
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
@@ -95,7 +108,11 @@ function Controls_Orbit() {
       pushDebugMessage("webgl context restored");
     };
 
-    renderer.domElement.addEventListener("webglcontextlost", onContextLost, false);
+    renderer.domElement.addEventListener(
+      "webglcontextlost",
+      onContextLost,
+      false,
+    );
     renderer.domElement.addEventListener(
       "webglcontextrestored",
       onContextRestored,
@@ -142,7 +159,7 @@ function Controls_Orbit() {
       moveUp: false,
       moveDown: false,
       velocity: 0,
-      acceleration:2,
+      acceleration: 2,
       damping: 7,
       maxSpeed: 3,
       touchSensitivity: 0.18,
@@ -269,7 +286,10 @@ function Controls_Orbit() {
     };
 
     const onPointerMove = (event) => {
-      if (pointerGesture.active && pointerGesture.pointerId === event.pointerId) {
+      if (
+        pointerGesture.active &&
+        pointerGesture.pointerId === event.pointerId
+      ) {
         pointerGesture.latestX = event.clientX;
         pointerGesture.latestY = event.clientY;
         const dx = event.clientX - pointerGesture.startX;
@@ -311,7 +331,10 @@ function Controls_Orbit() {
     };
 
     const onPointerEnd = (event) => {
-      if (pointerGesture.active && pointerGesture.pointerId === event.pointerId) {
+      if (
+        pointerGesture.active &&
+        pointerGesture.pointerId === event.pointerId
+      ) {
         const now = performance.now();
         const tapDuration = now - pointerGesture.startTime;
         const isTapLike = !pointerGesture.moved && tapDuration < 300;
@@ -493,7 +516,6 @@ function Controls_Orbit() {
               visible: false,
             }));
           }, 900);
-
         },
         (event) => {
           const loadedBytes = Number(event?.loaded ?? 0);
@@ -504,7 +526,8 @@ function Controls_Orbit() {
             loadedBytes,
           );
           const totalBytes = maxReportedTotalBytes;
-          const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
+          const progress =
+            totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
 
           setSafeLoadState((previous) => ({
             ...previous,
@@ -572,7 +595,10 @@ function Controls_Orbit() {
       const delta = (time - prevTime) / 1000;
 
       if (smoothTravel.active) {
-        const t = Math.min((time - smoothTravel.startTime) / smoothTravel.duration, 1);
+        const t = Math.min(
+          (time - smoothTravel.startTime) / smoothTravel.duration,
+          1,
+        );
         const eased = t * (2 - t);
         const nextTarget = smoothTravel.startTarget
           .clone()
@@ -639,7 +665,10 @@ function Controls_Orbit() {
       }
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      renderer.domElement.removeEventListener(
+        "webglcontextlost",
+        onContextLost,
+      );
       renderer.domElement.removeEventListener(
         "webglcontextrestored",
         onContextRestored,

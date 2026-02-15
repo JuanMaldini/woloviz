@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverrideMaterial } from "../components/override material";
+import { createOverrideMaterial } from "../components/override_material";
 import MenuModal from "../menu-modal/menu-modal";
 import LoadingDebugBar from "../components/LoadingDebugBar";
 
@@ -24,6 +24,17 @@ const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
+const RAW_CLOUDFRONT_URL = (import.meta.env.VITE_CLOUDFRONT_URL ?? "").trim();
+const CLOUDFRONT_URL_WITH_PROTOCOL = /^https?:\/\//i.test(RAW_CLOUDFRONT_URL)
+  ? RAW_CLOUDFRONT_URL
+  : RAW_CLOUDFRONT_URL
+    ? `https://${RAW_CLOUDFRONT_URL.replace(/^\/+/, "")}`
+    : "";
+const NORMALIZED_CLOUDFRONT_URL = CLOUDFRONT_URL_WITH_PROTOCOL.replace(
+  /\/+$/,
+  "",
+);
+const NOISELESS_GLB_URL = `${NORMALIZED_CLOUDFRONT_URL}/models/noiseless.glb`;
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
@@ -126,7 +137,7 @@ function Controls_PointerLock() {
     const disposableMaterials = [];
     const disposableGeometries = [];
     const gltfLoader = new GLTFLoader();
-    const sampleGlbUrl = "/projects/Sampleai/noiseless.glb";
+    const sampleGlbUrl = NOISELESS_GLB_URL;
     const targetModelHeight = 42;
     const tapRaycaster = new THREE.Raycaster();
     const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -564,116 +575,117 @@ function Controls_PointerLock() {
       }));
 
       gltfLoader.load(
-      requestUrl,
-      (gltf) => {
-        const model = gltf.scene;
-        loadedModel = model;
+        requestUrl,
+        (gltf) => {
+          const model = gltf.scene;
+          loadedModel = model;
 
-        const modelBox = new THREE.Box3().setFromObject(model);
-        const modelSize = new THREE.Vector3();
-        modelBox.getSize(modelSize);
+          const modelBox = new THREE.Box3().setFromObject(model);
+          const modelSize = new THREE.Vector3();
+          modelBox.getSize(modelSize);
 
-        if (modelSize.y > 0) {
-          const scaleFactor = targetModelHeight / modelSize.y;
-          model.scale.setScalar(scaleFactor);
-        }
+          if (modelSize.y > 0) {
+            const scaleFactor = targetModelHeight / modelSize.y;
+            model.scale.setScalar(scaleFactor);
+          }
 
-        model.updateMatrixWorld(true);
-        modelBox.setFromObject(model);
+          model.updateMatrixWorld(true);
+          modelBox.setFromObject(model);
 
-        const modelCenter = new THREE.Vector3();
-        modelBox.getCenter(modelCenter);
+          const modelCenter = new THREE.Vector3();
+          modelBox.getCenter(modelCenter);
 
-        model.position.x -= modelCenter.x;
-        model.position.z -= modelCenter.z;
-        model.position.y -= modelBox.min.y;
-        model.position.add(MODEL_POSITION_OFFSET);
+          model.position.x -= modelCenter.x;
+          model.position.z -= modelCenter.z;
+          model.position.y -= modelBox.min.y;
+          model.position.add(MODEL_POSITION_OFFSET);
 
-        scene.add(model);
-        model.updateMatrixWorld(true);
+          scene.add(model);
+          model.updateMatrixWorld(true);
 
-        obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
+          obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
 
-        if (ENABLE_MODEL_COLLISIONS) {
-          model.traverse((node) => {
-            if (!node.isMesh) {
-              return;
-            }
-
-            if (node.geometry) {
-              const box = new THREE.Box3().setFromObject(node);
-              if (shouldRegisterObstacle(box)) {
-                obstacleBoxes.push(box);
+          if (ENABLE_MODEL_COLLISIONS) {
+            model.traverse((node) => {
+              if (!node.isMesh) {
+                return;
               }
-            }
-          });
-        }
 
-        setSafeLoadState((previous) => ({
-          ...previous,
-          visible: true,
-          status: "loaded",
-          progress: 100,
-          error: "",
-        }));
-        pushDebugMessage("model loaded");
+              if (node.geometry) {
+                const box = new THREE.Box3().setFromObject(node);
+                if (shouldRegisterObstacle(box)) {
+                  obstacleBoxes.push(box);
+                }
+              }
+            });
+          }
 
-        hideBarTimeoutId = window.setTimeout(() => {
           setSafeLoadState((previous) => ({
             ...previous,
-            visible: false,
+            visible: true,
+            status: "loaded",
+            progress: 100,
+            error: "",
           }));
-        }, 900);
-      },
-      (event) => {
-        const loadedBytes = Number(event?.loaded ?? 0);
-        const eventTotalBytes = Number(event?.total ?? 0);
-        maxReportedTotalBytes = Math.max(
-          maxReportedTotalBytes,
-          eventTotalBytes,
-          loadedBytes,
-        );
-        const totalBytes = maxReportedTotalBytes;
-        const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
+          pushDebugMessage("model loaded");
 
-        setSafeLoadState((previous) => ({
-          ...previous,
-          visible: true,
-          status: "loading",
-          progress,
-          loadedBytes,
-          totalBytes,
-          error: "",
-        }));
-      },
-      (error) => {
-        const statusCode = Number(error?.target?.status || 0);
-        const isGatewayError = statusCode === 502;
-        const canRetry = retryAttempt < GLB_MAX_RETRIES;
-
-        if (isGatewayError && canRetry) {
-          const nextAttempt = retryAttempt + 1;
-          pushDebugMessage(
-            `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
+          hideBarTimeoutId = window.setTimeout(() => {
+            setSafeLoadState((previous) => ({
+              ...previous,
+              visible: false,
+            }));
+          }, 900);
+        },
+        (event) => {
+          const loadedBytes = Number(event?.loaded ?? 0);
+          const eventTotalBytes = Number(event?.total ?? 0);
+          maxReportedTotalBytes = Math.max(
+            maxReportedTotalBytes,
+            eventTotalBytes,
+            loadedBytes,
           );
-          window.setTimeout(() => {
-            loadWalkableModel(nextAttempt);
-          }, GLB_RETRY_DELAY_MS * nextAttempt);
-          return;
-        }
+          const totalBytes = maxReportedTotalBytes;
+          const progress =
+            totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
 
-        setSafeLoadState((previous) => ({
-          ...previous,
-          visible: true,
-          status: "error",
-          error: "Error loading Walkable GLB",
-        }));
-        const errorText =
-          error?.message || error?.target?.statusText || "unknown error";
-        pushDebugMessage(
-          `load error ${statusCode || "n/a"}: ${errorText} (${requestUrl})`,
-        );
-      },
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: true,
+            status: "loading",
+            progress,
+            loadedBytes,
+            totalBytes,
+            error: "",
+          }));
+        },
+        (error) => {
+          const statusCode = Number(error?.target?.status || 0);
+          const isGatewayError = statusCode === 502;
+          const canRetry = retryAttempt < GLB_MAX_RETRIES;
+
+          if (isGatewayError && canRetry) {
+            const nextAttempt = retryAttempt + 1;
+            pushDebugMessage(
+              `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
+            );
+            window.setTimeout(() => {
+              loadWalkableModel(nextAttempt);
+            }, GLB_RETRY_DELAY_MS * nextAttempt);
+            return;
+          }
+
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: true,
+            status: "error",
+            error: "Error loading Walkable GLB",
+          }));
+          const errorText =
+            error?.message || error?.target?.statusText || "unknown error";
+          pushDebugMessage(
+            `load error ${statusCode || "n/a"}: ${errorText} (${requestUrl})`,
+          );
+        },
       );
     };
 
