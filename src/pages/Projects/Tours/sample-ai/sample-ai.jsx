@@ -3,16 +3,12 @@ import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FaLocationDot } from "react-icons/fa6";
 import {
-  IoAdd,
-  IoChevronDown,
-  IoChevronForward,
-  IoChevronUp,
   IoInformationCircleOutline,
-  IoRemove,
 } from "react-icons/io5";
 import bowser from "bowser";
 import "../style.css";
 import MarzipanoTopBar from "../components/MarzipanoTopBar";
+import ViewControlButtons from "../components/ViewControlButtons";
 
 // Percentage-based positions so markers stay aligned on resize.
 const floorplanScenePositions = [
@@ -196,6 +192,10 @@ const data = {
 const SampleAI = () => {
   const rootRef = useRef(null);
   const [topBarTarget, setTopBarTarget] = useState(null);
+  const [viewControlsContext, setViewControlsContext] = useState({
+    viewer: null,
+    Marzipano: null,
+  });
 
   const degToRad = (deg) => (deg * Math.PI) / 180;
   const hotspotPitchSign = -1;
@@ -223,9 +223,6 @@ const SampleAI = () => {
       bodyClasses.push("multiple-scenes");
     } else {
       bodyClasses.push("single-scene");
-    }
-    if (data.settings.viewControlButtons) {
-      bodyClasses.push("view-control-buttons");
     }
     bodyClasses.forEach((className) => body.classList.add(className));
     body.classList.add("marzipano-navbar");
@@ -353,6 +350,7 @@ const SampleAI = () => {
       };
 
       const viewer = new Marzipano.Viewer(panoElement, viewerOpts);
+      setViewControlsContext({ viewer, Marzipano });
 
       const scenes = data.scenes.map((sceneData) => {
         const source = Marzipano.ImageUrlSource.fromString(sceneData.imageUrl);
@@ -465,105 +463,6 @@ const SampleAI = () => {
           });
         });
       });
-
-      const viewUpElement = root.querySelector("#viewUp");
-      const viewDownElement = root.querySelector("#viewDown");
-      const viewLeftElement = root.querySelector("#viewLeft");
-      const viewRightElement = root.querySelector("#viewRight");
-      const viewInElement = root.querySelector("#viewIn");
-      const viewOutElement = root.querySelector("#viewOut");
-
-      if (!data.settings.viewControlButtons) {
-        [
-          viewUpElement,
-          viewDownElement,
-          viewLeftElement,
-          viewRightElement,
-          viewInElement,
-          viewOutElement,
-        ].forEach((el) => {
-          if (el) {
-            el.style.display = "none";
-          }
-        });
-      }
-
-      const velocity = 0.7;
-      const friction = 3;
-
-      const controls = viewer.controls();
-      if (viewUpElement) {
-        controls.registerMethod(
-          "upElement",
-          new Marzipano.ElementPressControlMethod(
-            viewUpElement,
-            "y",
-            -velocity,
-            friction,
-          ),
-          true,
-        );
-      }
-      if (viewDownElement) {
-        controls.registerMethod(
-          "downElement",
-          new Marzipano.ElementPressControlMethod(
-            viewDownElement,
-            "y",
-            velocity,
-            friction,
-          ),
-          true,
-        );
-      }
-      if (viewLeftElement) {
-        controls.registerMethod(
-          "leftElement",
-          new Marzipano.ElementPressControlMethod(
-            viewLeftElement,
-            "x",
-            -velocity,
-            friction,
-          ),
-          true,
-        );
-      }
-      if (viewRightElement) {
-        controls.registerMethod(
-          "rightElement",
-          new Marzipano.ElementPressControlMethod(
-            viewRightElement,
-            "x",
-            velocity,
-            friction,
-          ),
-          true,
-        );
-      }
-      if (viewInElement) {
-        controls.registerMethod(
-          "inElement",
-          new Marzipano.ElementPressControlMethod(
-            viewInElement,
-            "zoom",
-            -velocity,
-            friction,
-          ),
-          true,
-        );
-      }
-      if (viewOutElement) {
-        controls.registerMethod(
-          "outElement",
-          new Marzipano.ElementPressControlMethod(
-            viewOutElement,
-            "zoom",
-            velocity,
-            friction,
-          ),
-          true,
-        );
-      }
 
       function sanitize(value) {
         return value
@@ -805,6 +704,7 @@ const SampleAI = () => {
 
     return () => {
       disposed = true;
+      setViewControlsContext({ viewer: null, Marzipano: null });
       const toggleEl = document.querySelector("#sceneListToggle");
       const closeEl = document.querySelector(
         '.scene-list-close[data-action="close-scene-list"]',
@@ -833,59 +733,12 @@ const SampleAI = () => {
           topBarTarget,
         )}
       <div id="pano" />
-
-      <button
-        type="button"
-        id="viewUp"
-        className="viewControlButton viewControlButton-1"
-        aria-label="View up"
-      >
-        <IoChevronUp className="icon" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        id="viewDown"
-        className="viewControlButton viewControlButton-2"
-        aria-label="View down"
-      >
-        <IoChevronDown className="icon" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        id="viewLeft"
-        className="viewControlButton viewControlButton-3"
-        aria-label="View left"
-      >
-        <IoChevronForward
-          className="icon"
-          aria-hidden="true"
-          style={{ transform: "rotate(180deg)" }}
-        />
-      </button>
-      <button
-        type="button"
-        id="viewRight"
-        className="viewControlButton viewControlButton-4"
-        aria-label="View right"
-      >
-        <IoChevronForward className="icon" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        id="viewIn"
-        className="viewControlButton viewControlButton-5"
-        aria-label="Zoom in"
-      >
-        <IoAdd className="icon" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        id="viewOut"
-        className="viewControlButton viewControlButton-6"
-        aria-label="Zoom out"
-      >
-        <IoRemove className="icon" aria-hidden="true" />
-      </button>
+      <ViewControlButtons
+        rootRef={rootRef}
+        viewer={viewControlsContext.viewer}
+        Marzipano={viewControlsContext.Marzipano}
+        enabled={data.settings.viewControlButtons}
+      />
     </div>
   );
 };

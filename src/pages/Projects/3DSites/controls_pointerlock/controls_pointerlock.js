@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createOverrideMaterial } from "../components/override material";
+import MenuModal from "../menu-modal/menu-modal";
 
 const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
@@ -23,13 +24,25 @@ const LOOK_MAX_DELTA_PER_EVENT = 35;
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
-  const blockerRef = useRef(null);
-  const instructionsRef = useRef(null);
+  const [menuVisible, setMenuVisible] = useState(true);
+  const menuVisibleRef = useRef(menuVisible);
+
+  useEffect(() => {
+    menuVisibleRef.current = menuVisible;
+  }, [menuVisible]);
+
+  const handleCloseMenu = useCallback((event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    if (event?.stopPropagation) {
+      event.stopPropagation();
+    }
+    setMenuVisible(false);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
-    const blocker = blockerRef.current;
-    const instructions = instructionsRef.current;
     const isTouchDevice =
       window.matchMedia("(pointer: coarse)").matches ||
       navigator.maxTouchPoints > 0;
@@ -37,7 +50,7 @@ function Controls_PointerLock() {
       typeof document.body.requestPointerLock === "function" && !isTouchDevice;
     let touchNavigationStarted = false;
 
-    if (!container || !blocker || !instructions) {
+    if (!container) {
       return undefined;
     }
 
@@ -55,7 +68,6 @@ function Controls_PointerLock() {
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
-    let canJump = false;
 
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
@@ -182,7 +194,6 @@ function Controls_PointerLock() {
       }
 
       velocity.y = 0;
-      canJump = true;
       return true;
     };
 
@@ -236,7 +247,31 @@ function Controls_PointerLock() {
     };
 
     const onPointerDown = (event) => {
+      if (!controls.isLocked && canUsePointerLock) {
+        if (menuVisibleRef.current) {
+          return;
+        }
+
+        try {
+          const result = controls.lock();
+          if (result && typeof result.catch === "function") {
+            result.catch(() => {});
+          }
+        } catch {
+          // Ignore lock errors; unlock event handles UI state.
+        }
+        return;
+      }
+
       if (!controls.isLocked && !touchNavigationStarted) {
+        if (!canUsePointerLock && !menuVisibleRef.current) {
+          touchNavigationStarted = true;
+        } else {
+          return;
+        }
+      }
+
+      if (menuVisibleRef.current) {
         return;
       }
 
@@ -323,44 +358,16 @@ function Controls_PointerLock() {
     controls = new PointerLockControls(camera, document.body);
     controls.pointerSpeed = 0;
 
-    const onInstructionsClick = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (canUsePointerLock) {
-        try {
-          const result = controls.lock();
-          if (result && typeof result.catch === "function") {
-            result.catch(() => {});
-          }
-        } catch {
-          // Ignore lock errors; unlock event handles UI state.
-        }
-        return;
-      }
-
-      touchNavigationStarted = true;
-      instructions.style.display = "none";
-      blocker.style.display = "none";
-    };
-
     const onLock = () => {
-      instructions.style.display = "none";
-      blocker.style.display = "none";
+      setMenuVisible(false);
     };
 
     const onUnlock = () => {
-      blocker.style.display = "block";
-      instructions.style.display = "";
+      setMenuVisible(true);
     };
 
-    instructions.addEventListener("pointerdown", onInstructionsClick);
     controls.addEventListener("lock", onLock);
     controls.addEventListener("unlock", onUnlock);
-
-    if (!canUsePointerLock) {
-      instructions.innerHTML = "Tap to start";
-    }
 
     scene.add(controls.object);
     controls.object.position.copy(PLAYER_SPAWN);
@@ -386,12 +393,6 @@ function Controls_PointerLock() {
         case "ArrowRight":
         case "KeyD":
           moveRight = true;
-          break;
-        case "Space":
-          if (canJump) {
-            velocity.y += 350;
-          }
-          canJump = false;
           break;
         default:
           break;
@@ -634,7 +635,6 @@ function Controls_PointerLock() {
 
         if (onObject) {
           velocity.y = Math.max(0, velocity.y);
-          canJump = false;
         }
 
         const moveRightDelta = -velocity.x * delta;
@@ -675,7 +675,6 @@ function Controls_PointerLock() {
         if (controls.object.position.y < PLAYER_GROUND_Y) {
           velocity.y = 0;
           controls.object.position.y = PLAYER_GROUND_Y;
-          canJump = false;
         }
       }
 
@@ -708,7 +707,6 @@ function Controls_PointerLock() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("keyup", onKeyUp);
       document.removeEventListener("mousemove", onMouseMoveLocked);
-      instructions.removeEventListener("pointerdown", onInstructionsClick);
       controls.removeEventListener("lock", onLock);
       controls.removeEventListener("unlock", onUnlock);
 
@@ -745,53 +743,18 @@ function Controls_PointerLock() {
         touchAction: "none",
       },
     },
-    React.createElement(
-      "div",
-      {
-        ref: blockerRef,
-        style: {
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          backgroundColor: "rgba(0,0,0,0.5)",
-          zIndex: 10,
-        },
-      },
-      React.createElement(
-        "div",
-        {
-          ref: instructionsRef,
-          style: {
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            textAlign: "center",
-            fontSize: "14px",
-            cursor: "pointer",
-            color: "#ffffff",
-            fontFamily: "Arial, sans-serif",
-            userSelect: "none",
-          },
-        },
-        React.createElement(
-          "p",
-          { style: { fontSize: "36px", margin: 0 } },
-          "Click to play",
-        ),
-        React.createElement(
-          "p",
-          { style: { marginTop: "12px", marginBottom: 0 } },
-          "Move: WASD",
-          React.createElement("br"),
-          "Jump: SPACE",
-          React.createElement("br"),
-          "Look: MOUSE",
-        ),
-      ),
-    ),
+    React.createElement(MenuModal, {
+      visible: menuVisible,
+      title: "Click to Play",
+      moveLabel: "Move: WASD",
+      lookLabel: "",
+      showTitle: true,
+      showMoveLabel: true,
+      showLookLabel: false,
+      showCloseButton: true,
+      closeLabel: "X",
+      onClose: handleCloseMenu,
+    }),
   );
 }
 
