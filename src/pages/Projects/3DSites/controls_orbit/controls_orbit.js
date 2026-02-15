@@ -13,13 +13,14 @@ const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 function Controls_Orbit() {
   const containerRef = useRef(null);
   const [loadState, setLoadState] = useState({
-    visible: true,
+    visible: false,
     status: "loading",
     progress: 0,
     label: "Loading Orbit GLB",
     error: "",
     loadedBytes: 0,
     totalBytes: 0,
+    messages: [],
   });
 
   useEffect(() => {
@@ -30,11 +31,18 @@ function Controls_Orbit() {
 
     let disposed = false;
     let hideBarTimeoutId;
+    let maxReportedTotalBytes = 0;
     const setSafeLoadState = (nextStateOrUpdater) => {
       if (disposed) {
         return;
       }
       setLoadState(nextStateOrUpdater);
+    };
+    const pushDebugMessage = (message) => {
+      setSafeLoadState((previous) => ({
+        ...previous,
+        messages: [...previous.messages.slice(-7), message],
+      }));
     };
 
     let loadedModel = null;
@@ -66,9 +74,31 @@ function Controls_Orbit() {
       window.matchMedia("(pointer: coarse)").matches ||
       navigator.maxTouchPoints > 0;
     const renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
+
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setSafeLoadState((previous) => ({
+        ...previous,
+        visible: true,
+        status: "error",
+        error: "WebGL context lost",
+      }));
+      pushDebugMessage("webgl context lost");
+    };
+
+    const onContextRestored = () => {
+      pushDebugMessage("webgl context restored");
+    };
+
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost, false);
+    renderer.domElement.addEventListener(
+      "webglcontextrestored",
+      onContextRestored,
+      false,
+    );
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.listenToKeyEvents(window);
@@ -146,7 +176,7 @@ function Controls_Orbit() {
 
     const tryStartTravelToScreenPoint = (clientX, clientY) => {
       if (!loadedModel) {
-        console.warn("[controls_orbit] travel ignored, model not loaded yet");
+        pushDebugMessage("travel ignored: model not loaded");
         return;
       }
 
@@ -162,7 +192,7 @@ function Controls_Orbit() {
       const hits = hitRaycaster.intersectObject(loadedModel, true);
 
       if (!hits.length) {
-        console.info("[controls_orbit] no hit point found for travel");
+        pushDebugMessage("travel ignored: no hit point");
         return;
       }
 
@@ -355,9 +385,7 @@ function Controls_Orbit() {
           status: "error",
           error: "GLB not found",
         }));
-        console.error("[controls_orbit] no GLB candidate worked", {
-          sampleGlbCandidates,
-        });
+        pushDebugMessage("no GLB candidate worked");
         return;
       }
 
@@ -373,8 +401,6 @@ function Controls_Orbit() {
             if (!node.isMesh) {
               return;
             }
-
-            node.frustumCulled = false;
 
             if (!node.material) {
               return;
@@ -442,11 +468,12 @@ function Controls_Orbit() {
 
           setSafeLoadState((previous) => ({
             ...previous,
-            visible: true,
+            visible: false,
             status: "loaded",
             progress: 100,
             error: "",
           }));
+          pushDebugMessage("model loaded");
 
           hideBarTimeoutId = window.setTimeout(() => {
             setSafeLoadState((previous) => ({
@@ -458,12 +485,18 @@ function Controls_Orbit() {
         },
         (event) => {
           const loadedBytes = Number(event?.loaded ?? 0);
-          const totalBytes = Number(event?.total ?? 0);
+          const eventTotalBytes = Number(event?.total ?? 0);
+          maxReportedTotalBytes = Math.max(
+            maxReportedTotalBytes,
+            eventTotalBytes,
+            loadedBytes,
+          );
+          const totalBytes = maxReportedTotalBytes;
           const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
 
           setSafeLoadState((previous) => ({
             ...previous,
-            visible: true,
+            visible: false,
             status: "loading",
             progress,
             loadedBytes,
@@ -483,11 +516,9 @@ function Controls_Orbit() {
             status: "error",
             error: "Error loading Orbit GLB",
           }));
-
-          console.error("[controls_orbit] Error loading noiseless.glb", {
-            sampleGlbUrl,
-            error,
-          });
+          const errorText =
+            error?.message || error?.target?.statusText || "unknown error";
+          pushDebugMessage(`load error: ${errorText}`);
         },
       );
     };
@@ -579,6 +610,11 @@ function Controls_Orbit() {
       }
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      renderer.domElement.removeEventListener(
+        "webglcontextrestored",
+        onContextRestored,
+      );
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerEnd);
@@ -610,6 +646,8 @@ function Controls_Orbit() {
       error: loadState.error,
       loadedBytes: loadState.loadedBytes,
       totalBytes: loadState.totalBytes,
+      messages: loadState.messages,
+      showProgress: false,
     }),
   });
 }

@@ -27,13 +27,14 @@ function Controls_PointerLock() {
   const containerRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(true);
   const [loadState, setLoadState] = useState({
-    visible: true,
+    visible: false,
     status: "loading",
     progress: 0,
     label: "Loading Walkable GLB",
     error: "",
     loadedBytes: 0,
     totalBytes: 0,
+    messages: [],
   });
   const menuVisibleRef = useRef(menuVisible);
 
@@ -61,12 +62,19 @@ function Controls_PointerLock() {
     let touchNavigationStarted = false;
     let disposed = false;
     let hideBarTimeoutId;
+    let maxReportedTotalBytes = 0;
 
     const setSafeLoadState = (nextStateOrUpdater) => {
       if (disposed) {
         return;
       }
       setLoadState(nextStateOrUpdater);
+    };
+    const pushDebugMessage = (message) => {
+      setSafeLoadState((previous) => ({
+        ...previous,
+        messages: [...previous.messages.slice(-7), message],
+      }));
     };
 
     if (!container) {
@@ -589,11 +597,12 @@ function Controls_PointerLock() {
 
         setSafeLoadState((previous) => ({
           ...previous,
-          visible: true,
+          visible: false,
           status: "loaded",
           progress: 100,
           error: "",
         }));
+        pushDebugMessage("model loaded");
 
         hideBarTimeoutId = window.setTimeout(() => {
           setSafeLoadState((previous) => ({
@@ -604,12 +613,18 @@ function Controls_PointerLock() {
       },
       (event) => {
         const loadedBytes = Number(event?.loaded ?? 0);
-        const totalBytes = Number(event?.total ?? 0);
+        const eventTotalBytes = Number(event?.total ?? 0);
+        maxReportedTotalBytes = Math.max(
+          maxReportedTotalBytes,
+          eventTotalBytes,
+          loadedBytes,
+        );
+        const totalBytes = maxReportedTotalBytes;
         const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
 
         setSafeLoadState((previous) => ({
           ...previous,
-          visible: true,
+          visible: false,
           status: "loading",
           progress,
           loadedBytes,
@@ -624,10 +639,9 @@ function Controls_PointerLock() {
           status: "error",
           error: "Error loading Walkable GLB",
         }));
-        console.error("[controls_pointerlock] Error loading noiseless.glb", {
-          sampleGlbUrl,
-          error,
-        });
+        const errorText =
+          error?.message || error?.target?.statusText || "unknown error";
+        pushDebugMessage(`load error: ${errorText}`);
       },
     );
 
@@ -824,6 +838,8 @@ function Controls_PointerLock() {
       error: loadState.error,
       loadedBytes: loadState.loadedBytes,
       totalBytes: loadState.totalBytes,
+      messages: loadState.messages,
+      showProgress: false,
     }),
   );
 }
