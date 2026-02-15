@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -6,17 +6,36 @@ import {
   createOverrideMaterial,
   OVERRIDE_MATERIAL_ENABLED,
 } from "../components/override material";
+import LoadingDebugBar from "../components/LoadingDebugBar";
 
-const ORBIT_OVERRIDE_MATERIAL_ACTIVE = OVERRIDE_MATERIAL_ENABLED;
+const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
+  const [loadState, setLoadState] = useState({
+    visible: true,
+    status: "loading",
+    progress: 0,
+    label: "Loading Orbit GLB",
+    error: "",
+    loadedBytes: 0,
+    totalBytes: 0,
+  });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return undefined;
     }
+
+    let disposed = false;
+    let hideBarTimeoutId;
+    const setSafeLoadState = (nextStateOrUpdater) => {
+      if (disposed) {
+        return;
+      }
+      setLoadState(nextStateOrUpdater);
+    };
 
     let loadedModel = null;
     const gltfLoader = new GLTFLoader();
@@ -330,6 +349,12 @@ function Controls_Orbit() {
 
     const loadSampleModel = (candidateIndex = 0) => {
       if (candidateIndex >= sampleGlbCandidates.length) {
+        setSafeLoadState((previous) => ({
+          ...previous,
+          visible: true,
+          status: "error",
+          error: "GLB not found",
+        }));
         console.error("[controls_orbit] no GLB candidate worked", {
           sampleGlbCandidates,
         });
@@ -415,13 +440,49 @@ function Controls_Orbit() {
           camera.lookAt(finalCenter);
           controls.update();
 
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: true,
+            status: "loaded",
+            progress: 100,
+            error: "",
+          }));
+
+          hideBarTimeoutId = window.setTimeout(() => {
+            setSafeLoadState((previous) => ({
+              ...previous,
+              visible: false,
+            }));
+          }, 900);
+
         },
-        undefined,
+        (event) => {
+          const loadedBytes = Number(event?.loaded ?? 0);
+          const totalBytes = Number(event?.total ?? 0);
+          const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
+
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: true,
+            status: "loading",
+            progress,
+            loadedBytes,
+            totalBytes,
+            error: "",
+          }));
+        },
         (error) => {
           if (candidateIndex < sampleGlbCandidates.length - 1) {
             loadSampleModel(candidateIndex + 1);
             return;
           }
+
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: true,
+            status: "error",
+            error: "Error loading Orbit GLB",
+          }));
 
           console.error("[controls_orbit] Error loading noiseless.glb", {
             sampleGlbUrl,
@@ -512,6 +573,10 @@ function Controls_Orbit() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
+      disposed = true;
+      if (hideBarTimeoutId) {
+        window.clearTimeout(hideBarTimeoutId);
+      }
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
@@ -537,6 +602,15 @@ function Controls_Orbit() {
   return React.createElement("div", {
     ref: containerRef,
     style: { width: "100%", height: "100%", position: "relative" },
+    children: React.createElement(LoadingDebugBar, {
+      visible: loadState.visible,
+      status: loadState.status,
+      progress: loadState.progress,
+      label: loadState.label,
+      error: loadState.error,
+      loadedBytes: loadState.loadedBytes,
+      totalBytes: loadState.totalBytes,
+    }),
   });
 }
 

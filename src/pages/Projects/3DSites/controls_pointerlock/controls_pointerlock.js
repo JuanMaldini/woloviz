@@ -4,6 +4,7 @@ import { PointerLockControls } from "three/examples/jsm/controls/PointerLockCont
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createOverrideMaterial } from "../components/override material";
 import MenuModal from "../menu-modal/menu-modal";
+import LoadingDebugBar from "../components/LoadingDebugBar";
 
 const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
@@ -25,6 +26,15 @@ const LOOK_MAX_DELTA_PER_EVENT = 35;
 function Controls_PointerLock() {
   const containerRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(true);
+  const [loadState, setLoadState] = useState({
+    visible: true,
+    status: "loading",
+    progress: 0,
+    label: "Loading Walkable GLB",
+    error: "",
+    loadedBytes: 0,
+    totalBytes: 0,
+  });
   const menuVisibleRef = useRef(menuVisible);
 
   useEffect(() => {
@@ -49,6 +59,15 @@ function Controls_PointerLock() {
     const canUsePointerLock =
       typeof document.body.requestPointerLock === "function" && !isTouchDevice;
     let touchNavigationStarted = false;
+    let disposed = false;
+    let hideBarTimeoutId;
+
+    const setSafeLoadState = (nextStateOrUpdater) => {
+      if (disposed) {
+        return;
+      }
+      setLoadState(nextStateOrUpdater);
+    };
 
     if (!container) {
       return undefined;
@@ -97,7 +116,7 @@ function Controls_PointerLock() {
     const disposableMaterials = [];
     const disposableGeometries = [];
     const gltfLoader = new GLTFLoader();
-    const sampleGlbUrl = new URL("../../../../../public/projects/Sampleai/noiseless.glb", import.meta.url).href;
+    const sampleGlbUrl = "/projects/Sampleai/noiseless.glb";
     const targetModelHeight = 42;
     const tapRaycaster = new THREE.Raycaster();
     const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -433,86 +452,84 @@ function Controls_PointerLock() {
       10,
     );
 
-    let floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
-    floorGeometry.rotateX(-Math.PI / 2);
-
-    let position = floorGeometry.attributes.position;
-
-    for (let index = 0, length = position.count; index < length; index += 1) {
-      vertex.fromBufferAttribute(position, index);
-      vertex.x += Math.random() * 20 - 10;
-      vertex.y += Math.random() * 2;
-      vertex.z += Math.random() * 20 - 10;
-      position.setXYZ(index, vertex.x, vertex.y, vertex.z);
-    }
-
-    floorGeometry = floorGeometry.toNonIndexed();
-    position = floorGeometry.attributes.position;
-
-    const colorsFloor = [];
-    for (let index = 0, length = position.count; index < length; index += 1) {
-      color.setHSL(
-        Math.random() * 0.3 + 0.5,
-        0.75,
-        Math.random() * 0.25 + 0.75,
-        THREE.SRGBColorSpace,
-      );
-      colorsFloor.push(color.r, color.g, color.b);
-    }
-
-    floorGeometry.setAttribute(
-      "color",
-      new THREE.Float32BufferAttribute(colorsFloor, 3),
-    );
-    disposableGeometries.push(floorGeometry);
-
-    const floorMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
-    disposableMaterials.push(floorMaterial);
-
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     if (showLegacyScene) {
+      let floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
+      floorGeometry.rotateX(-Math.PI / 2);
+
+      let position = floorGeometry.attributes.position;
+
+      for (let index = 0, length = position.count; index < length; index += 1) {
+        vertex.fromBufferAttribute(position, index);
+        vertex.x += Math.random() * 20 - 10;
+        vertex.y += Math.random() * 2;
+        vertex.z += Math.random() * 20 - 10;
+        position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+      }
+
+      floorGeometry = floorGeometry.toNonIndexed();
+      position = floorGeometry.attributes.position;
+
+      const colorsFloor = [];
+      for (let index = 0, length = position.count; index < length; index += 1) {
+        color.setHSL(
+          Math.random() * 0.3 + 0.5,
+          0.75,
+          Math.random() * 0.25 + 0.75,
+          THREE.SRGBColorSpace,
+        );
+        colorsFloor.push(color.r, color.g, color.b);
+      }
+
+      floorGeometry.setAttribute(
+        "color",
+        new THREE.Float32BufferAttribute(colorsFloor, 3),
+      );
+      disposableGeometries.push(floorGeometry);
+
+      const floorMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+      disposableMaterials.push(floorMaterial);
+
+      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
       scene.add(floor);
-    }
 
-    const boxGeometry = new THREE.BoxGeometry(20, 20, 20).toNonIndexed();
-    disposableGeometries.push(boxGeometry);
-    position = boxGeometry.attributes.position;
+      const boxGeometry = new THREE.BoxGeometry(20, 20, 20).toNonIndexed();
+      disposableGeometries.push(boxGeometry);
+      position = boxGeometry.attributes.position;
 
-    const colorsBox = [];
-    for (let index = 0, length = position.count; index < length; index += 1) {
-      color.setHSL(
-        Math.random() * 0.3 + 0.5,
-        0.75,
-        Math.random() * 0.25 + 0.75,
-        THREE.SRGBColorSpace,
+      const colorsBox = [];
+      for (let index = 0, length = position.count; index < length; index += 1) {
+        color.setHSL(
+          Math.random() * 0.3 + 0.5,
+          0.75,
+          Math.random() * 0.25 + 0.75,
+          THREE.SRGBColorSpace,
+        );
+        colorsBox.push(color.r, color.g, color.b);
+      }
+      boxGeometry.setAttribute(
+        "color",
+        new THREE.Float32BufferAttribute(colorsBox, 3),
       );
-      colorsBox.push(color.r, color.g, color.b);
-    }
-    boxGeometry.setAttribute(
-      "color",
-      new THREE.Float32BufferAttribute(colorsBox, 3),
-    );
 
-    for (let index = 0; index < 500; index += 1) {
-      const boxMaterial = new THREE.MeshPhongMaterial({
-        specular: 0xffffff,
-        flatShading: true,
-        vertexColors: true,
-      });
-      boxMaterial.color.setHSL(
-        Math.random() * 0.2 + 0.5,
-        0.75,
-        Math.random() * 0.25 + 0.75,
-        THREE.SRGBColorSpace,
-      );
-      disposableMaterials.push(boxMaterial);
+      for (let index = 0; index < 500; index += 1) {
+        const boxMaterial = new THREE.MeshPhongMaterial({
+          specular: 0xffffff,
+          flatShading: true,
+          vertexColors: true,
+        });
+        boxMaterial.color.setHSL(
+          Math.random() * 0.2 + 0.5,
+          0.75,
+          Math.random() * 0.25 + 0.75,
+          THREE.SRGBColorSpace,
+        );
+        disposableMaterials.push(boxMaterial);
 
-      const box = new THREE.Mesh(boxGeometry, boxMaterial);
-      box.position.x = Math.floor(Math.random() * 20 - 10) * 20;
-      box.position.y = Math.floor(Math.random() * 20) * 20 + 10;
-      box.position.z = Math.floor(Math.random() * 20 - 10) * 20;
+        const box = new THREE.Mesh(boxGeometry, boxMaterial);
+        box.position.x = Math.floor(Math.random() * 20 - 10) * 20;
+        box.position.y = Math.floor(Math.random() * 20) * 20 + 10;
+        box.position.z = Math.floor(Math.random() * 20 - 10) * 20;
 
-      if (showLegacyScene) {
         scene.add(box);
         objects.push(box);
         obstacleBoxes.push(
@@ -569,13 +586,53 @@ function Controls_PointerLock() {
             }
           });
         }
+
+        setSafeLoadState((previous) => ({
+          ...previous,
+          visible: true,
+          status: "loaded",
+          progress: 100,
+          error: "",
+        }));
+
+        hideBarTimeoutId = window.setTimeout(() => {
+          setSafeLoadState((previous) => ({
+            ...previous,
+            visible: false,
+          }));
+        }, 900);
       },
-      undefined,
-      () => {},
+      (event) => {
+        const loadedBytes = Number(event?.loaded ?? 0);
+        const totalBytes = Number(event?.total ?? 0);
+        const progress = totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
+
+        setSafeLoadState((previous) => ({
+          ...previous,
+          visible: true,
+          status: "loading",
+          progress,
+          loadedBytes,
+          totalBytes,
+          error: "",
+        }));
+      },
+      (error) => {
+        setSafeLoadState((previous) => ({
+          ...previous,
+          visible: true,
+          status: "error",
+          error: "Error loading Walkable GLB",
+        }));
+        console.error("[controls_pointerlock] Error loading noiseless.glb", {
+          sampleGlbUrl,
+          error,
+        });
+      },
     );
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setAnimationLoop(() => {
       const time = performance.now();
@@ -699,6 +756,10 @@ function Controls_PointerLock() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
+      disposed = true;
+      if (hideBarTimeoutId) {
+        window.clearTimeout(hideBarTimeoutId);
+      }
       window.removeEventListener("resize", onWindowResize);
       container.removeEventListener("pointerdown", onPointerDown);
       container.removeEventListener("pointermove", onPointerMove);
@@ -754,6 +815,15 @@ function Controls_PointerLock() {
       showCloseButton: true,
       closeLabel: "X",
       onClose: handleCloseMenu,
+    }),
+    React.createElement(LoadingDebugBar, {
+      visible: loadState.visible,
+      status: loadState.status,
+      progress: loadState.progress,
+      label: loadState.label,
+      error: loadState.error,
+      loadedBytes: loadState.loadedBytes,
+      totalBytes: loadState.totalBytes,
     }),
   );
 }
