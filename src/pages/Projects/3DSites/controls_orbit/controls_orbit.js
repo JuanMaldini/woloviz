@@ -1,62 +1,22 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import {
-  createOverrideMaterial,
-  OVERRIDE_MATERIAL_ENABLED,
-} from "../components/override_material";
-import LoadingDebugBar from "../components/LoadingDebugBar";
+import { createOverrideMaterial } from "../components/override_material";
 
 const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const RAW_CLOUDFRONT_URL = (import.meta.env.VITE_CLOUDFRONT_URL ?? "").trim();
-const CLOUDFRONT_URL_WITH_PROTOCOL = /^https?:\/\//i.test(RAW_CLOUDFRONT_URL)
-  ? RAW_CLOUDFRONT_URL
-  : RAW_CLOUDFRONT_URL
-    ? `https://${RAW_CLOUDFRONT_URL.replace(/^\/+/, "")}`
-    : "";
-const NORMALIZED_CLOUDFRONT_URL = CLOUDFRONT_URL_WITH_PROTOCOL.replace(
-  /\/+$/,
-  "",
-);
-const NOISELESS_GLB_URL = `${NORMALIZED_CLOUDFRONT_URL}/models/noiseless.glb`;
+const NOISELESS_GLB_URL = "/projects/Sampleai/noiseless.glb";
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
-  const [loadState, setLoadState] = useState({
-    visible: true,
-    status: "loading",
-    progress: 0,
-    label: "Loading Orbit GLB",
-    error: "",
-    loadedBytes: 0,
-    totalBytes: 0,
-    messages: [],
-  });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return undefined;
     }
-
-    let disposed = false;
-    let hideBarTimeoutId;
-    let maxReportedTotalBytes = 0;
-    const setSafeLoadState = (nextStateOrUpdater) => {
-      if (disposed) {
-        return;
-      }
-      setLoadState(nextStateOrUpdater);
-    };
-    const pushDebugMessage = (message) => {
-      setSafeLoadState((previous) => ({
-        ...previous,
-        messages: [...previous.messages.slice(-7), message],
-      }));
-    };
 
     let loadedModel = null;
     const gltfLoader = new GLTFLoader();
@@ -92,32 +52,6 @@ function Controls_Orbit() {
     );
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
-
-    const onContextLost = (event) => {
-      event.preventDefault();
-      setSafeLoadState((previous) => ({
-        ...previous,
-        visible: true,
-        status: "error",
-        error: "WebGL context lost",
-      }));
-      pushDebugMessage("webgl context lost");
-    };
-
-    const onContextRestored = () => {
-      pushDebugMessage("webgl context restored");
-    };
-
-    renderer.domElement.addEventListener(
-      "webglcontextlost",
-      onContextLost,
-      false,
-    );
-    renderer.domElement.addEventListener(
-      "webglcontextrestored",
-      onContextRestored,
-      false,
-    );
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.listenToKeyEvents(window);
@@ -195,7 +129,6 @@ function Controls_Orbit() {
 
     const tryStartTravelToScreenPoint = (clientX, clientY) => {
       if (!loadedModel) {
-        pushDebugMessage("travel ignored: model not loaded");
         return;
       }
 
@@ -211,7 +144,6 @@ function Controls_Orbit() {
       const hits = hitRaycaster.intersectObject(loadedModel, true);
 
       if (!hits.length) {
-        pushDebugMessage("travel ignored: no hit point");
         return;
       }
 
@@ -404,13 +336,6 @@ function Controls_Orbit() {
 
     const loadSampleModel = (candidateIndex = 0, retryAttempt = 0) => {
       if (candidateIndex >= sampleGlbCandidates.length) {
-        setSafeLoadState((previous) => ({
-          ...previous,
-          visible: true,
-          status: "error",
-          error: "GLB not found",
-        }));
-        pushDebugMessage("no GLB candidate worked");
         return;
       }
 
@@ -419,12 +344,6 @@ function Controls_Orbit() {
         retryAttempt > 0
           ? `${baseGlbUrl}${baseGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
           : baseGlbUrl;
-
-      setSafeLoadState((previous) => ({
-        ...previous,
-        visible: true,
-        status: "loading",
-      }));
 
       gltfLoader.load(
         sampleGlbUrl,
@@ -500,45 +419,8 @@ function Controls_Orbit() {
           controls.maxDistance = Math.max(100, radius * 1);
           camera.lookAt(finalCenter);
           controls.update();
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "loaded",
-            progress: 100,
-            error: "",
-          }));
-          pushDebugMessage("model loaded");
-
-          hideBarTimeoutId = window.setTimeout(() => {
-            setSafeLoadState((previous) => ({
-              ...previous,
-              visible: false,
-            }));
-          }, 900);
         },
-        (event) => {
-          const loadedBytes = Number(event?.loaded ?? 0);
-          const eventTotalBytes = Number(event?.total ?? 0);
-          maxReportedTotalBytes = Math.max(
-            maxReportedTotalBytes,
-            eventTotalBytes,
-            loadedBytes,
-          );
-          const totalBytes = maxReportedTotalBytes;
-          const progress =
-            totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "loading",
-            progress,
-            loadedBytes,
-            totalBytes,
-            error: "",
-          }));
-        },
+        undefined,
         (error) => {
           const statusCode = Number(error?.target?.status || 0);
           const isGatewayError = statusCode === 502;
@@ -557,20 +439,7 @@ function Controls_Orbit() {
 
           if (candidateIndex < sampleGlbCandidates.length - 1) {
             loadSampleModel(candidateIndex + 1);
-            return;
           }
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "error",
-            error: "Error loading Orbit GLB",
-          }));
-          const errorText =
-            error?.message || error?.target?.statusText || "unknown error";
-          pushDebugMessage(
-            `load error ${statusCode || "n/a"}: ${errorText} (${sampleGlbUrl})`,
-          );
         },
       );
     };
@@ -659,20 +528,8 @@ function Controls_Orbit() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
-      disposed = true;
-      if (hideBarTimeoutId) {
-        window.clearTimeout(hideBarTimeoutId);
-      }
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      renderer.domElement.removeEventListener(
-        "webglcontextlost",
-        onContextLost,
-      );
-      renderer.domElement.removeEventListener(
-        "webglcontextrestored",
-        onContextRestored,
-      );
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerEnd);
@@ -696,17 +553,6 @@ function Controls_Orbit() {
   return React.createElement("div", {
     ref: containerRef,
     style: { width: "100%", height: "100%", position: "relative" },
-    children: React.createElement(LoadingDebugBar, {
-      visible: loadState.visible,
-      status: loadState.status,
-      progress: loadState.progress,
-      label: loadState.label,
-      error: loadState.error,
-      loadedBytes: loadState.loadedBytes,
-      totalBytes: loadState.totalBytes,
-      messages: loadState.messages,
-      showProgress: true,
-    }),
   });
 }
 

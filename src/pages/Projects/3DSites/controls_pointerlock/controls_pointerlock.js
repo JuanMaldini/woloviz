@@ -4,7 +4,6 @@ import { PointerLockControls } from "three/examples/jsm/controls/PointerLockCont
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createOverrideMaterial } from "../components/override_material";
 import MenuModal from "../menu-modal/menu-modal";
-import LoadingDebugBar from "../components/LoadingDebugBar";
 
 const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
@@ -24,31 +23,11 @@ const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const RAW_CLOUDFRONT_URL = (import.meta.env.VITE_CLOUDFRONT_URL ?? "").trim();
-const CLOUDFRONT_URL_WITH_PROTOCOL = /^https?:\/\//i.test(RAW_CLOUDFRONT_URL)
-  ? RAW_CLOUDFRONT_URL
-  : RAW_CLOUDFRONT_URL
-    ? `https://${RAW_CLOUDFRONT_URL.replace(/^\/+/, "")}`
-    : "";
-const NORMALIZED_CLOUDFRONT_URL = CLOUDFRONT_URL_WITH_PROTOCOL.replace(
-  /\/+$/,
-  "",
-);
-const NOISELESS_GLB_URL = `${NORMALIZED_CLOUDFRONT_URL}/models/noiseless.glb`;
+const NOISELESS_GLB_URL = "/projects/Sampleai/noiseless.glb";
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(true);
-  const [loadState, setLoadState] = useState({
-    visible: true,
-    status: "loading",
-    progress: 0,
-    label: "Loading Walkable GLB",
-    error: "",
-    loadedBytes: 0,
-    totalBytes: 0,
-    messages: [],
-  });
   const menuVisibleRef = useRef(menuVisible);
 
   useEffect(() => {
@@ -73,22 +52,6 @@ function Controls_PointerLock() {
     const canUsePointerLock =
       typeof document.body.requestPointerLock === "function" && !isTouchDevice;
     let touchNavigationStarted = false;
-    let disposed = false;
-    let hideBarTimeoutId;
-    let maxReportedTotalBytes = 0;
-
-    const setSafeLoadState = (nextStateOrUpdater) => {
-      if (disposed) {
-        return;
-      }
-      setLoadState(nextStateOrUpdater);
-    };
-    const pushDebugMessage = (message) => {
-      setSafeLoadState((previous) => ({
-        ...previous,
-        messages: [...previous.messages.slice(-7), message],
-      }));
-    };
 
     if (!container) {
       return undefined;
@@ -568,12 +531,6 @@ function Controls_PointerLock() {
           ? `${sampleGlbUrl}${sampleGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
           : sampleGlbUrl;
 
-      setSafeLoadState((previous) => ({
-        ...previous,
-        visible: true,
-        status: "loading",
-      }));
-
       gltfLoader.load(
         requestUrl,
         (gltf) => {
@@ -619,45 +576,8 @@ function Controls_PointerLock() {
               }
             });
           }
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "loaded",
-            progress: 100,
-            error: "",
-          }));
-          pushDebugMessage("model loaded");
-
-          hideBarTimeoutId = window.setTimeout(() => {
-            setSafeLoadState((previous) => ({
-              ...previous,
-              visible: false,
-            }));
-          }, 900);
         },
-        (event) => {
-          const loadedBytes = Number(event?.loaded ?? 0);
-          const eventTotalBytes = Number(event?.total ?? 0);
-          maxReportedTotalBytes = Math.max(
-            maxReportedTotalBytes,
-            eventTotalBytes,
-            loadedBytes,
-          );
-          const totalBytes = maxReportedTotalBytes;
-          const progress =
-            totalBytes > 0 ? (loadedBytes / totalBytes) * 100 : 0;
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "loading",
-            progress,
-            loadedBytes,
-            totalBytes,
-            error: "",
-          }));
-        },
+        undefined,
         (error) => {
           const statusCode = Number(error?.target?.status || 0);
           const isGatewayError = statusCode === 502;
@@ -665,26 +585,11 @@ function Controls_PointerLock() {
 
           if (isGatewayError && canRetry) {
             const nextAttempt = retryAttempt + 1;
-            pushDebugMessage(
-              `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
-            );
             window.setTimeout(() => {
               loadWalkableModel(nextAttempt);
             }, GLB_RETRY_DELAY_MS * nextAttempt);
             return;
           }
-
-          setSafeLoadState((previous) => ({
-            ...previous,
-            visible: true,
-            status: "error",
-            error: "Error loading Walkable GLB",
-          }));
-          const errorText =
-            error?.message || error?.target?.statusText || "unknown error";
-          pushDebugMessage(
-            `load error ${statusCode || "n/a"}: ${errorText} (${requestUrl})`,
-          );
         },
       );
     };
@@ -816,10 +721,6 @@ function Controls_PointerLock() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
-      disposed = true;
-      if (hideBarTimeoutId) {
-        window.clearTimeout(hideBarTimeoutId);
-      }
       window.removeEventListener("resize", onWindowResize);
       container.removeEventListener("pointerdown", onPointerDown);
       container.removeEventListener("pointermove", onPointerMove);
@@ -875,17 +776,6 @@ function Controls_PointerLock() {
       showCloseButton: true,
       closeLabel: "X",
       onClose: handleCloseMenu,
-    }),
-    React.createElement(LoadingDebugBar, {
-      visible: loadState.visible,
-      status: loadState.status,
-      progress: loadState.progress,
-      label: loadState.label,
-      error: loadState.error,
-      loadedBytes: loadState.loadedBytes,
-      totalBytes: loadState.totalBytes,
-      messages: loadState.messages,
-      showProgress: true,
     }),
   );
 }
