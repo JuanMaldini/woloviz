@@ -1,16 +1,24 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverrideMaterial } from "../components/override_material";
+import { createOverrideMaterial } from "./components/override_material";
+import MenuModal, { useMenuPauseController } from "./components/menu-modal";
 
 const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const NOISELESS_GLB_URL = "/projects/Sampleai/noiseless.glb";
+const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
+  const [currentPose, setCurrentPose] = useState(null);
+  const {
+    isVisible: menuVisible,
+    isVisibleRef: menuVisibleRef,
+    requestPause,
+    requestClose,
+  } = useMenuPauseController({ initialVisible: true });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -64,6 +72,8 @@ function Controls_Orbit() {
     const hitRaycaster = new THREE.Raycaster();
     const hitPointerNdc = new THREE.Vector2();
     const hitPoint = new THREE.Vector3();
+    const lookDirectionVector = new THREE.Vector3();
+    let lastPoseSnapshotTime = 0;
     const smoothTravel = {
       active: false,
       startTime: 0,
@@ -128,6 +138,10 @@ function Controls_Orbit() {
     };
 
     const tryStartTravelToScreenPoint = (clientX, clientY) => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       if (!loadedModel) {
         return;
       }
@@ -155,6 +169,10 @@ function Controls_Orbit() {
     };
 
     const beginTwoFingerVerticalIfNeeded = () => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       if (activeTouchPoints.size === 2 && !twoFingerVertical.active) {
         twoFingerVertical.active = true;
         twoFingerVertical.lastCentroidY = getTouchCentroidY();
@@ -165,11 +183,24 @@ function Controls_Orbit() {
     const stopTwoFingerVerticalIfNeeded = () => {
       if (twoFingerVertical.active && activeTouchPoints.size < 2) {
         twoFingerVertical.active = false;
-        controls.enabled = true;
+        controls.enabled = !menuVisibleRef.current;
       }
     };
 
     const onKeyDown = (event) => {
+      if (event.code === "Escape") {
+        verticalMotion.moveUp = false;
+        verticalMotion.moveDown = false;
+        verticalMotion.velocity = 0;
+        requestPause();
+        event.preventDefault();
+        return;
+      }
+
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       if (isEditableElement(event.target)) {
         return;
       }
@@ -186,6 +217,10 @@ function Controls_Orbit() {
     };
 
     const onKeyUp = (event) => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       if (event.code === "KeyE") {
         verticalMotion.moveUp = false;
       }
@@ -196,6 +231,10 @@ function Controls_Orbit() {
     };
 
     const onPointerDown = (event) => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       pointerGesture.active = true;
       pointerGesture.pointerId = event.pointerId;
       pointerGesture.startX = event.clientX;
@@ -218,6 +257,10 @@ function Controls_Orbit() {
     };
 
     const onPointerMove = (event) => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
       if (
         pointerGesture.active &&
         pointerGesture.pointerId === event.pointerId
@@ -263,6 +306,19 @@ function Controls_Orbit() {
     };
 
     const onPointerEnd = (event) => {
+      if (menuVisibleRef.current) {
+        pointerGesture.active = false;
+        pointerGesture.pointerId = null;
+
+        if (event.pointerType !== "touch") {
+          return;
+        }
+
+        activeTouchPoints.delete(event.pointerId);
+        stopTwoFingerVerticalIfNeeded();
+        return;
+      }
+
       if (
         pointerGesture.active &&
         pointerGesture.pointerId === event.pointerId
@@ -428,9 +484,6 @@ function Controls_Orbit() {
 
           if (isGatewayError && canRetry) {
             const nextAttempt = retryAttempt + 1;
-            pushDebugMessage(
-              `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
-            );
             window.setTimeout(() => {
               loadSampleModel(candidateIndex, nextAttempt);
             }, GLB_RETRY_DELAY_MS * nextAttempt);
@@ -462,6 +515,38 @@ function Controls_Orbit() {
     const animate = () => {
       const time = performance.now();
       const delta = (time - prevTime) / 1000;
+
+      if (time - lastPoseSnapshotTime >= 120) {
+        camera.getWorldDirection(lookDirectionVector);
+        setCurrentPose({
+          position: {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z,
+          },
+          lookDirection: {
+            x: lookDirectionVector.x,
+            y: lookDirectionVector.y,
+            z: lookDirectionVector.z,
+          },
+        });
+        lastPoseSnapshotTime = time;
+      }
+
+      if (menuVisibleRef.current) {
+        controls.enabled = false;
+        smoothTravel.active = false;
+        verticalMotion.moveUp = false;
+        verticalMotion.moveDown = false;
+        verticalMotion.velocity = 0;
+        renderer.render(scene, camera);
+        prevTime = time;
+        return;
+      }
+
+      if (!twoFingerVertical.active) {
+        controls.enabled = true;
+      }
 
       if (smoothTravel.active) {
         const t = Math.min(
@@ -550,10 +635,24 @@ function Controls_Orbit() {
     };
   }, []);
 
-  return React.createElement("div", {
-    ref: containerRef,
-    style: { width: "100%", height: "100%", position: "relative" },
-  });
+  return React.createElement(
+    "div",
+    {
+      ref: containerRef,
+      style: {
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        overflow: "hidden",
+        touchAction: "none",
+      },
+    },
+    React.createElement(MenuModal, {
+      visible: menuVisible,
+      currentPose,
+      onClose: requestClose,
+    }),
+  );
 }
 
 export default Controls_Orbit;

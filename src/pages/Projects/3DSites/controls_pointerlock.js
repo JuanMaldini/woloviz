@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverrideMaterial } from "../components/override_material";
-import MenuModal from "../menu-modal/menu-modal";
+import { createOverrideMaterial } from "./components/override_material";
+import MenuModal, { useMenuPauseController } from "./components/menu-modal";
 
 const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
@@ -23,26 +23,18 @@ const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const NOISELESS_GLB_URL = "/projects/Sampleai/noiseless.glb";
+const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
-  const [menuVisible, setMenuVisible] = useState(true);
-  const menuVisibleRef = useRef(menuVisible);
-
-  useEffect(() => {
-    menuVisibleRef.current = menuVisible;
-  }, [menuVisible]);
-
-  const handleCloseMenu = useCallback((event) => {
-    if (event?.preventDefault) {
-      event.preventDefault();
-    }
-    if (event?.stopPropagation) {
-      event.stopPropagation();
-    }
-    setMenuVisible(false);
-  }, []);
+  const [currentPose, setCurrentPose] = useState(null);
+  const {
+    isVisible: menuVisible,
+    isVisibleRef: menuVisibleRef,
+    requestPause,
+    requestResume,
+    requestClose,
+  } = useMenuPauseController({ initialVisible: true });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -73,6 +65,7 @@ function Controls_PointerLock() {
     let moveRight = false;
 
     let prevTime = performance.now();
+    let lastPoseSnapshotTime = 0;
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
     const vertex = new THREE.Vector3();
@@ -124,6 +117,7 @@ function Controls_PointerLock() {
       maxPitch: Math.PI / 2 - 0.05,
     };
     const lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
+    const lookDirectionVector = new THREE.Vector3();
     let lastTapTime = 0;
     let lastTapX = 0;
     let lastTapY = 0;
@@ -362,11 +356,11 @@ function Controls_PointerLock() {
     controls.pointerSpeed = 0;
 
     const onLock = () => {
-      setMenuVisible(false);
+      requestResume();
     };
 
     const onUnlock = () => {
-      setMenuVisible(true);
+      requestPause();
     };
 
     controls.addEventListener("lock", onLock);
@@ -602,6 +596,23 @@ function Controls_PointerLock() {
     renderer.setAnimationLoop(() => {
       const time = performance.now();
 
+      if (time - lastPoseSnapshotTime >= 120) {
+        camera.getWorldDirection(lookDirectionVector);
+        setCurrentPose({
+          position: {
+            x: controls.object.position.x,
+            y: controls.object.position.y,
+            z: controls.object.position.z,
+          },
+          lookDirection: {
+            x: lookDirectionVector.x,
+            y: lookDirectionVector.y,
+            z: lookDirectionVector.z,
+          },
+        });
+        lastPoseSnapshotTime = time;
+      }
+
       if (mobileTeleport.active) {
         const t = Math.min(
           (time - mobileTeleport.startTime) / mobileTeleport.duration,
@@ -767,15 +778,8 @@ function Controls_PointerLock() {
     },
     React.createElement(MenuModal, {
       visible: menuVisible,
-      title: "Click to Play",
-      moveLabel: "Move: WASD",
-      lookLabel: "",
-      showTitle: true,
-      showMoveLabel: true,
-      showLookLabel: false,
-      showCloseButton: true,
-      closeLabel: "X",
-      onClose: handleCloseMenu,
+      currentPose,
+      onClose: requestClose,
     }),
   );
 }

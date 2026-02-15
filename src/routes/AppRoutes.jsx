@@ -1,17 +1,23 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "../pages/Home/Home";
-import SegVialGremio from "../pages/Projects/SegVialGremio/SegVialGremio";
+import SegVialGremio from "../pages/Projects/Realtime/SegVialGremio/SegVialGremio";
 import NotFound from "../pages/NotFound/NotFound";
-import Contact from "../pages/contact/contact";
+
 import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
 import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
+
+import About from "../pages/About/About";
 import Projects from "../pages/Projects/Projects";
+import Contact from "../pages/contact/contact";
+
 import AccessGate from "../pages/segurity/AccessGate";
 import ProtectedRoute from "./ProtectedRoute";
-import About from "../pages/About/About";
+
 import Playground from "../pages/Projects/Tours/playground/playground";
+
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock/controls_pointerlock";
+
 import MenuModal from "../pages/Projects/3DSites/menu-modal/menu-modal";
 
 const AppRoutes = () => {

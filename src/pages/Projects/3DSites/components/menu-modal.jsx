@@ -1,21 +1,61 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import CurrentViewPositionPanel from "./CurrentViewPositionPanel";
 
 const PREVIEW_SLIDES = [
   {
     title: "Fachada contemporánea",
-    imageUrl: "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1600&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1600&q=80",
   },
   {
     title: "Minimalist interior",
-    imageUrl: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1300&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1300&q=80",
   },
   {
     title: "Project lobby",
-    imageUrl: "https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1400&q=80",
-  }
-].map((slide) => ({ ...slide, id: `${slide.title}-${slide.imageUrl}`}));
+    imageUrl:
+      "https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1400&q=80",
+  },
+].map((slide) => ({ ...slide, id: `${slide.title}-${slide.imageUrl}` }));
 
-const MenuModal = ({ visible = true, onClose }) => {
+export const useMenuPauseController = ({ initialVisible = true } = {}) => {
+  const [isVisible, setIsVisible] = useState(initialVisible);
+  const isVisibleRef = useRef(isVisible);
+
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
+
+  const requestPause = useCallback(() => {
+    setIsVisible(true);
+  }, []);
+
+  const requestResume = useCallback(() => {
+    setIsVisible(false);
+  }, []);
+
+  const requestClose = useCallback((event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    if (event?.stopPropagation) {
+      event.stopPropagation();
+    }
+    setIsVisible(false);
+  }, []);
+
+  return {
+    isVisible,
+    isVisibleRef,
+    requestPause,
+    requestResume,
+    requestClose,
+    setIsVisible,
+  };
+};
+
+const MenuModal = ({ visible = true, onClose, currentPose }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isVisibleInternal, setIsVisibleInternal] = useState(true);
 
@@ -89,7 +129,7 @@ const MenuModal = ({ visible = true, onClose }) => {
     <div className="absolute inset-0 z-50 flex h-full w-full items-center justify-center px-0 py-3">
       <div className="w-auto max-w-full text-black">
         <div className="inline-block bg-slate-200 shadow-sm">
-          <div className="flex items-center justify-between border-b border-black/10 px-4 py-2">
+          <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
             <p className="text-sm font-medium tracking-wide">Floorplan</p>
             <button
               type="button"
@@ -137,9 +177,12 @@ const MenuModal = ({ visible = true, onClose }) => {
             </div>
 
             <div className="mt-4 w-full border-t border-black/10 bg-white/70 px-4 py-3 text-sm leading-6 text-black/85">
-              <p className="font-semibold tracking-wide">
-                Unit A-1204 · 3 rooms
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold tracking-wide">
+                  Unit A-1204 · 3 rooms
+                </p>
+                <CurrentViewPositionPanel currentPose={currentPose} />
+              </div>
               <p>68 m²· 2 rooms · 1 bathroom</p>
               <p>Living · Kitchen with bar</p>
               <p>Estimated delivery: Q4 2026 · Northeast orientation</p>
