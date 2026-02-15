@@ -22,12 +22,14 @@ const COLLISION_MAX_WALKABLE_THICKNESS = 1.2;
 const COLLISION_MAX_OBSTACLE_SPAN = 28;
 const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
+const GLB_MAX_RETRIES = 2;
+const GLB_RETRY_DELAY_MS = 700;
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(true);
   const [loadState, setLoadState] = useState({
-    visible: false,
+    visible: true,
     status: "loading",
     progress: 0,
     label: "Loading Walkable GLB",
@@ -549,8 +551,20 @@ function Controls_PointerLock() {
       }
     }
 
-    gltfLoader.load(
-      sampleGlbUrl,
+    const loadWalkableModel = (retryAttempt = 0) => {
+      const requestUrl =
+        retryAttempt > 0
+          ? `${sampleGlbUrl}${sampleGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
+          : sampleGlbUrl;
+
+      setSafeLoadState((previous) => ({
+        ...previous,
+        visible: true,
+        status: "loading",
+      }));
+
+      gltfLoader.load(
+      requestUrl,
       (gltf) => {
         const model = gltf.scene;
         loadedModel = model;
@@ -597,7 +611,7 @@ function Controls_PointerLock() {
 
         setSafeLoadState((previous) => ({
           ...previous,
-          visible: false,
+          visible: true,
           status: "loaded",
           progress: 100,
           error: "",
@@ -624,7 +638,7 @@ function Controls_PointerLock() {
 
         setSafeLoadState((previous) => ({
           ...previous,
-          visible: false,
+          visible: true,
           status: "loading",
           progress,
           loadedBytes,
@@ -633,6 +647,21 @@ function Controls_PointerLock() {
         }));
       },
       (error) => {
+        const statusCode = Number(error?.target?.status || 0);
+        const isGatewayError = statusCode === 502;
+        const canRetry = retryAttempt < GLB_MAX_RETRIES;
+
+        if (isGatewayError && canRetry) {
+          const nextAttempt = retryAttempt + 1;
+          pushDebugMessage(
+            `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
+          );
+          window.setTimeout(() => {
+            loadWalkableModel(nextAttempt);
+          }, GLB_RETRY_DELAY_MS * nextAttempt);
+          return;
+        }
+
         setSafeLoadState((previous) => ({
           ...previous,
           visible: true,
@@ -641,9 +670,14 @@ function Controls_PointerLock() {
         }));
         const errorText =
           error?.message || error?.target?.statusText || "unknown error";
-        pushDebugMessage(`load error: ${errorText}`);
+        pushDebugMessage(
+          `load error ${statusCode || "n/a"}: ${errorText} (${requestUrl})`,
+        );
       },
-    );
+      );
+    };
+
+    loadWalkableModel();
 
     renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -839,7 +873,7 @@ function Controls_PointerLock() {
       loadedBytes: loadState.loadedBytes,
       totalBytes: loadState.totalBytes,
       messages: loadState.messages,
-      showProgress: false,
+      showProgress: true,
     }),
   );
 }

@@ -9,11 +9,13 @@ import {
 import LoadingDebugBar from "../components/LoadingDebugBar";
 
 const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
+const GLB_MAX_RETRIES = 2;
+const GLB_RETRY_DELAY_MS = 700;
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
   const [loadState, setLoadState] = useState({
-    visible: false,
+    visible: true,
     status: "loading",
     progress: 0,
     label: "Loading Orbit GLB",
@@ -377,7 +379,7 @@ function Controls_Orbit() {
     const ambientLight = new THREE.AmbientLight(0x555555);
     scene.add(ambientLight);
 
-    const loadSampleModel = (candidateIndex = 0) => {
+    const loadSampleModel = (candidateIndex = 0, retryAttempt = 0) => {
       if (candidateIndex >= sampleGlbCandidates.length) {
         setSafeLoadState((previous) => ({
           ...previous,
@@ -389,7 +391,17 @@ function Controls_Orbit() {
         return;
       }
 
-      const sampleGlbUrl = sampleGlbCandidates[candidateIndex];
+      const baseGlbUrl = sampleGlbCandidates[candidateIndex];
+      const sampleGlbUrl =
+        retryAttempt > 0
+          ? `${baseGlbUrl}${baseGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
+          : baseGlbUrl;
+
+      setSafeLoadState((previous) => ({
+        ...previous,
+        visible: true,
+        status: "loading",
+      }));
 
       gltfLoader.load(
         sampleGlbUrl,
@@ -468,7 +480,7 @@ function Controls_Orbit() {
 
           setSafeLoadState((previous) => ({
             ...previous,
-            visible: false,
+            visible: true,
             status: "loaded",
             progress: 100,
             error: "",
@@ -496,7 +508,7 @@ function Controls_Orbit() {
 
           setSafeLoadState((previous) => ({
             ...previous,
-            visible: false,
+            visible: true,
             status: "loading",
             progress,
             loadedBytes,
@@ -505,6 +517,21 @@ function Controls_Orbit() {
           }));
         },
         (error) => {
+          const statusCode = Number(error?.target?.status || 0);
+          const isGatewayError = statusCode === 502;
+          const canRetry = retryAttempt < GLB_MAX_RETRIES;
+
+          if (isGatewayError && canRetry) {
+            const nextAttempt = retryAttempt + 1;
+            pushDebugMessage(
+              `502 on GLB, retry ${nextAttempt}/${GLB_MAX_RETRIES}`,
+            );
+            window.setTimeout(() => {
+              loadSampleModel(candidateIndex, nextAttempt);
+            }, GLB_RETRY_DELAY_MS * nextAttempt);
+            return;
+          }
+
           if (candidateIndex < sampleGlbCandidates.length - 1) {
             loadSampleModel(candidateIndex + 1);
             return;
@@ -518,7 +545,9 @@ function Controls_Orbit() {
           }));
           const errorText =
             error?.message || error?.target?.statusText || "unknown error";
-          pushDebugMessage(`load error: ${errorText}`);
+          pushDebugMessage(
+            `load error ${statusCode || "n/a"}: ${errorText} (${sampleGlbUrl})`,
+          );
         },
       );
     };
@@ -647,7 +676,7 @@ function Controls_Orbit() {
       loadedBytes: loadState.loadedBytes,
       totalBytes: loadState.totalBytes,
       messages: loadState.messages,
-      showProgress: false,
+      showProgress: true,
     }),
   });
 }
