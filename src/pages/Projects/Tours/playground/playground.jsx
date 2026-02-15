@@ -172,7 +172,6 @@ const Playground = () => {
       try {
         await loadScriptOnce("/build/marzipano.js", "marzipano");
       } catch (error) {
-        console.error("Failed to load Marzipano script", error);
         return;
       }
 
@@ -197,7 +196,6 @@ const Playground = () => {
       let preserveCurrentViewEnabled = false;
 
       if (!Marzipano) {
-        console.error("Marzipano is not available on window");
         return;
       }
 

@@ -213,7 +213,6 @@ const Marzipano = () => {
           "screenfull",
         );
       } catch (error) {
-        console.error("Failed to load Marzipano scripts", error);
         return;
       }
 
@@ -225,7 +224,6 @@ const Marzipano = () => {
       const screenfull = window.screenfull;
 
       if (!Marzipano) {
-        console.error("Marzipano is not available on window");
         return;
       }
 

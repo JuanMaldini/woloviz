@@ -1852,7 +1852,6 @@ export default function Form({
         uploadedAssets,
         generatedAt: new Date().toISOString(),
       };
-      console.log("OK", integrationPayload);
 
       if (isProduction) {
         writeDraftInBrowser(false);
@@ -1866,7 +1865,6 @@ export default function Form({
         1500,
       );
     } catch (error) {
-      console.error("Failed to generate data.js", error);
       setCopyState({
         state: "error",
         message:

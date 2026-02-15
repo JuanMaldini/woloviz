@@ -2,21 +2,12 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import {
+  createOverrideMaterial,
+  OVERRIDE_MATERIAL_ENABLED,
+} from "../components/override material";
 
-const HIDDEN_OBJECT_NAMES = ["Cieloraso"];
-const HIDDEN_OBJECT_PREFIXES = [];
-
-function shouldHideObject(objectName) {
-  if (!objectName) {
-    return false;
-  }
-
-  if (HIDDEN_OBJECT_NAMES.includes(objectName)) {
-    return true;
-  }
-
-  return HIDDEN_OBJECT_PREFIXES.some((prefix) => objectName.startsWith(prefix));
-}
+const ORBIT_OVERRIDE_MATERIAL_ACTIVE = OVERRIDE_MATERIAL_ENABLED;
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
@@ -29,14 +20,20 @@ function Controls_Orbit() {
 
     let loadedModel = null;
     const gltfLoader = new GLTFLoader();
-    const sampleGlbCandidates = [
-      new URL("../controls_pointerlock/sample.glb", import.meta.url).href,
-    ];
+    const sampleGlbCandidates = ["/projects/Sampleai/noiseless.glb"];
     const targetModelHeight = 24;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xcccccc);
     scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+    const overrideMaterial = createOverrideMaterial({
+      enabled: ORBIT_OVERRIDE_MATERIAL_ACTIVE,
+      grayValue: 180,
+    });
+
+    if (overrideMaterial) {
+      scene.overrideMaterial = overrideMaterial;
+    }
 
     const camera = new THREE.PerspectiveCamera(
       60,
@@ -46,8 +43,11 @@ function Controls_Orbit() {
     );
     camera.position.set(400, 200, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    const isTouchDevice =
+      window.matchMedia("(pointer: coarse)").matches ||
+      navigator.maxTouchPoints > 0;
+    const renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
@@ -59,6 +59,263 @@ function Controls_Orbit() {
     controls.minDistance = 2;
     controls.maxDistance = 5000;
     controls.maxPolarAngle = Math.PI / 2;
+    const hitRaycaster = new THREE.Raycaster();
+    const hitPointerNdc = new THREE.Vector2();
+    const hitPoint = new THREE.Vector3();
+    const smoothTravel = {
+      active: false,
+      startTime: 0,
+      duration: 520,
+      startTarget: new THREE.Vector3(),
+      endTarget: new THREE.Vector3(),
+    };
+    const pointerGesture = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      latestX: 0,
+      latestY: 0,
+      moved: false,
+      pointerType: "",
+      startTime: 0,
+    };
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    let lastMouseClickTime = 0;
+    let lastMouseClickX = 0;
+    let lastMouseClickY = 0;
+
+    const verticalMotion = {
+      moveUp: false,
+      moveDown: false,
+      velocity: 0,
+      acceleration:2,
+      damping: 7,
+      maxSpeed: 3,
+      touchSensitivity: 0.18,
+    };
+    const activeTouchPoints = new Map();
+    const twoFingerVertical = {
+      active: false,
+      lastCentroidY: 0,
+    };
+
+    const isEditableElement = (target) => {
+      if (!target) {
+        return false;
+      }
+
+      const tagName = target.tagName;
+      return (
+        target.isContentEditable ||
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT"
+      );
+    };
+
+    const getTouchCentroidY = () => {
+      let totalY = 0;
+      activeTouchPoints.forEach((point) => {
+        totalY += point.y;
+      });
+
+      return totalY / activeTouchPoints.size;
+    };
+
+    const tryStartTravelToScreenPoint = (clientX, clientY) => {
+      if (!loadedModel) {
+        console.warn("[controls_orbit] travel ignored, model not loaded yet");
+        return;
+      }
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        return;
+      }
+
+      hitPointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      hitPointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+      hitRaycaster.setFromCamera(hitPointerNdc, camera);
+      const hits = hitRaycaster.intersectObject(loadedModel, true);
+
+      if (!hits.length) {
+        console.info("[controls_orbit] no hit point found for travel");
+        return;
+      }
+
+      hitPoint.copy(hits[0].point);
+      smoothTravel.startTarget.copy(controls.target);
+      smoothTravel.endTarget.copy(hitPoint);
+      smoothTravel.startTime = performance.now();
+      smoothTravel.active = true;
+    };
+
+    const beginTwoFingerVerticalIfNeeded = () => {
+      if (activeTouchPoints.size === 2 && !twoFingerVertical.active) {
+        twoFingerVertical.active = true;
+        twoFingerVertical.lastCentroidY = getTouchCentroidY();
+        controls.enabled = false;
+      }
+    };
+
+    const stopTwoFingerVerticalIfNeeded = () => {
+      if (twoFingerVertical.active && activeTouchPoints.size < 2) {
+        twoFingerVertical.active = false;
+        controls.enabled = true;
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (isEditableElement(event.target)) {
+        return;
+      }
+
+      if (event.code === "KeyE") {
+        verticalMotion.moveUp = true;
+        event.preventDefault();
+      }
+
+      if (event.code === "KeyQ") {
+        verticalMotion.moveDown = true;
+        event.preventDefault();
+      }
+    };
+
+    const onKeyUp = (event) => {
+      if (event.code === "KeyE") {
+        verticalMotion.moveUp = false;
+      }
+
+      if (event.code === "KeyQ") {
+        verticalMotion.moveDown = false;
+      }
+    };
+
+    const onPointerDown = (event) => {
+      pointerGesture.active = true;
+      pointerGesture.pointerId = event.pointerId;
+      pointerGesture.startX = event.clientX;
+      pointerGesture.startY = event.clientY;
+      pointerGesture.latestX = event.clientX;
+      pointerGesture.latestY = event.clientY;
+      pointerGesture.moved = false;
+      pointerGesture.pointerType = event.pointerType;
+      pointerGesture.startTime = performance.now();
+
+      if (event.pointerType !== "touch") {
+        return;
+      }
+
+      activeTouchPoints.set(event.pointerId, {
+        y: event.clientY,
+      });
+
+      beginTwoFingerVerticalIfNeeded();
+    };
+
+    const onPointerMove = (event) => {
+      if (pointerGesture.active && pointerGesture.pointerId === event.pointerId) {
+        pointerGesture.latestX = event.clientX;
+        pointerGesture.latestY = event.clientY;
+        const dx = event.clientX - pointerGesture.startX;
+        const dy = event.clientY - pointerGesture.startY;
+        if (!pointerGesture.moved && dx * dx + dy * dy > 64) {
+          pointerGesture.moved = true;
+        }
+      }
+
+      if (event.pointerType !== "touch") {
+        return;
+      }
+
+      if (!activeTouchPoints.has(event.pointerId)) {
+        return;
+      }
+
+      activeTouchPoints.set(event.pointerId, {
+        y: event.clientY,
+      });
+
+      beginTwoFingerVerticalIfNeeded();
+
+      if (!twoFingerVertical.active || activeTouchPoints.size !== 2) {
+        return;
+      }
+
+      const centroidY = getTouchCentroidY();
+      const deltaY = centroidY - twoFingerVertical.lastCentroidY;
+      twoFingerVertical.lastCentroidY = centroidY;
+
+      verticalMotion.velocity += deltaY * verticalMotion.touchSensitivity;
+      verticalMotion.velocity = THREE.MathUtils.clamp(
+        verticalMotion.velocity,
+        -verticalMotion.maxSpeed,
+        verticalMotion.maxSpeed,
+      );
+      event.preventDefault();
+    };
+
+    const onPointerEnd = (event) => {
+      if (pointerGesture.active && pointerGesture.pointerId === event.pointerId) {
+        const now = performance.now();
+        const tapDuration = now - pointerGesture.startTime;
+        const isTapLike = !pointerGesture.moved && tapDuration < 300;
+
+        if (isTapLike && pointerGesture.pointerType === "mouse") {
+          const dx = pointerGesture.latestX - lastMouseClickX;
+          const dy = pointerGesture.latestY - lastMouseClickY;
+          const nearPreviousClick = dx * dx + dy * dy <= 36 * 36;
+          const isDoubleClick =
+            now - lastMouseClickTime > 0 &&
+            now - lastMouseClickTime < 340 &&
+            nearPreviousClick;
+
+          if (isDoubleClick) {
+            tryStartTravelToScreenPoint(
+              pointerGesture.latestX,
+              pointerGesture.latestY,
+            );
+          }
+
+          lastMouseClickTime = now;
+          lastMouseClickX = pointerGesture.latestX;
+          lastMouseClickY = pointerGesture.latestY;
+        }
+
+        if (isTapLike && pointerGesture.pointerType === "touch") {
+          const dx = pointerGesture.latestX - lastTapX;
+          const dy = pointerGesture.latestY - lastTapY;
+          const nearPreviousTap = dx * dx + dy * dy <= 36 * 36;
+          const isDoubleTap =
+            now - lastTapTime > 0 && now - lastTapTime < 340 && nearPreviousTap;
+
+          if (isDoubleTap && activeTouchPoints.size <= 1) {
+            tryStartTravelToScreenPoint(
+              pointerGesture.latestX,
+              pointerGesture.latestY,
+            );
+          }
+
+          lastTapTime = now;
+          lastTapX = pointerGesture.latestX;
+          lastTapY = pointerGesture.latestY;
+        }
+
+        pointerGesture.active = false;
+        pointerGesture.pointerId = null;
+      }
+
+      if (event.pointerType !== "touch") {
+        return;
+      }
+
+      activeTouchPoints.delete(event.pointerId);
+      stopTwoFingerVerticalIfNeeded();
+    };
 
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 3);
     dirLight1.position.set(1, 1, 1);
@@ -73,37 +330,19 @@ function Controls_Orbit() {
 
     const loadSampleModel = (candidateIndex = 0) => {
       if (candidateIndex >= sampleGlbCandidates.length) {
-        console.error(
-          "Error loading sample.glb in orbit view: no valid URL candidate worked",
-        );
+        console.error("[controls_orbit] no GLB candidate worked", {
+          sampleGlbCandidates,
+        });
         return;
       }
 
       const sampleGlbUrl = sampleGlbCandidates[candidateIndex];
-      console.info("[controls_orbit] trying GLB", sampleGlbUrl);
 
       gltfLoader.load(
         sampleGlbUrl,
         (gltf) => {
           const model = gltf.scene;
           loadedModel = model;
-          let texturedMaterialCount = 0;
-          let hiddenObjectCount = 0;
-
-          model.traverse((node) => {
-            if (shouldHideObject(node.name)) {
-              node.visible = false;
-              hiddenObjectCount += 1;
-            }
-          });
-
-          if (hiddenObjectCount > 0) {
-            console.info("[controls_orbit] hidden objects", {
-              count: hiddenObjectCount,
-              names: HIDDEN_OBJECT_NAMES,
-              prefixes: HIDDEN_OBJECT_PREFIXES,
-            });
-          }
 
           model.traverse((node) => {
             if (!node.isMesh) {
@@ -118,60 +357,23 @@ function Controls_Orbit() {
 
             if (Array.isArray(node.material)) {
               node.material.forEach((materialItem) => {
-                if (
-                  materialItem.map ||
-                  materialItem.normalMap ||
-                  materialItem.roughnessMap ||
-                  materialItem.metalnessMap ||
-                  materialItem.emissiveMap ||
-                  materialItem.aoMap ||
-                  materialItem.alphaMap
-                ) {
-                  texturedMaterialCount += 1;
-                }
                 materialItem.side = THREE.DoubleSide;
                 materialItem.needsUpdate = true;
               });
               return;
             }
 
-            if (
-              node.material.map ||
-              node.material.normalMap ||
-              node.material.roughnessMap ||
-              node.material.metalnessMap ||
-              node.material.emissiveMap ||
-              node.material.aoMap ||
-              node.material.alphaMap
-            ) {
-              texturedMaterialCount += 1;
-            }
-
             node.material.side = THREE.DoubleSide;
             node.material.needsUpdate = true;
           });
-
-          if (texturedMaterialCount === 0) {
-            console.warn(
-              "[controls_orbit] El GLB no reporta mapas de textura en sus materiales; se renderiza con materiales base.",
-            );
-          }
 
           const modelBox = new THREE.Box3().setFromObject(model);
           const modelSize = new THREE.Vector3();
           modelBox.getSize(modelSize);
 
-          console.info("[controls_orbit] raw model size", {
-            x: modelSize.x,
-            y: modelSize.y,
-            z: modelSize.z,
-            children: model.children.length,
-          });
-
           if (modelSize.y > 0) {
             const scaleFactor = targetModelHeight / modelSize.y;
             model.scale.setScalar(scaleFactor);
-            console.info("[controls_orbit] applied scale", scaleFactor);
           }
 
           model.updateMatrixWorld(true);
@@ -195,16 +397,6 @@ function Controls_Orbit() {
           finalBox.getSize(finalSize);
           finalBox.getBoundingSphere(finalSphere);
 
-          console.info("[controls_orbit] final model transform", {
-            position: {
-              x: model.position.x,
-              y: model.position.y,
-              z: model.position.z,
-            },
-            center: { x: finalCenter.x, y: finalCenter.y, z: finalCenter.z },
-            size: { x: finalSize.x, y: finalSize.y, z: finalSize.z },
-          });
-
           const radius = Math.max(finalSphere.radius, 1);
           const distance = radius * 2.2;
           const viewDirection = new THREE.Vector3(1, 0.7, 1).normalize();
@@ -218,41 +410,30 @@ function Controls_Orbit() {
           camera.updateProjectionMatrix();
 
           controls.target.copy(finalCenter);
-          controls.minDistance = Math.max(0.5, radius * 0.15);
-          controls.maxDistance = Math.max(100, radius * 20);
+          controls.minDistance = Math.max(0.5, radius * 0.02);
+          controls.maxDistance = Math.max(100, radius * 1);
           camera.lookAt(finalCenter);
           controls.update();
 
-          console.info("[controls_orbit] camera/target", {
-            camera: {
-              x: camera.position.x,
-              y: camera.position.y,
-              z: camera.position.z,
-            },
-            target: {
-              x: controls.target.x,
-              y: controls.target.y,
-              z: controls.target.z,
-            },
-          });
         },
         undefined,
         (error) => {
           if (candidateIndex < sampleGlbCandidates.length - 1) {
-            console.warn("[controls_orbit] failed candidate, trying fallback", {
-              candidate: sampleGlbUrl,
-              error,
-            });
             loadSampleModel(candidateIndex + 1);
             return;
           }
 
-          console.error("Error loading sample.glb in orbit view", error);
+          console.error("[controls_orbit] Error loading noiseless.glb", {
+            sampleGlbUrl,
+            error,
+          });
         },
       );
     };
 
     loadSampleModel();
+
+    let prevTime = performance.now();
 
     const onWindowResize = () => {
       if (!containerRef.current) {
@@ -266,19 +447,85 @@ function Controls_Orbit() {
     };
 
     const animate = () => {
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+
+      if (smoothTravel.active) {
+        const t = Math.min((time - smoothTravel.startTime) / smoothTravel.duration, 1);
+        const eased = t * (2 - t);
+        const nextTarget = smoothTravel.startTarget
+          .clone()
+          .lerp(smoothTravel.endTarget, eased);
+        const travelDelta = nextTarget.sub(controls.target);
+
+        if (travelDelta.lengthSq() > 0) {
+          controls.target.add(travelDelta);
+          camera.position.add(travelDelta);
+        }
+
+        if (t >= 1) {
+          smoothTravel.active = false;
+        }
+      }
+
+      if (verticalMotion.moveUp && !verticalMotion.moveDown) {
+        verticalMotion.velocity += verticalMotion.acceleration * delta;
+      } else if (verticalMotion.moveDown && !verticalMotion.moveUp) {
+        verticalMotion.velocity -= verticalMotion.acceleration * delta;
+      } else {
+        verticalMotion.velocity -=
+          verticalMotion.velocity * Math.min(1, verticalMotion.damping * delta);
+      }
+
+      verticalMotion.velocity = THREE.MathUtils.clamp(
+        verticalMotion.velocity,
+        -verticalMotion.maxSpeed,
+        verticalMotion.maxSpeed,
+      );
+
+      const verticalDelta = verticalMotion.velocity * delta;
+      if (verticalDelta !== 0) {
+        camera.position.y += verticalDelta;
+        controls.target.y += verticalDelta;
+      }
+
       controls.update();
       renderer.render(scene, camera);
+      prevTime = time;
     };
 
     renderer.setAnimationLoop(animate);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    renderer.domElement.addEventListener("pointerdown", onPointerDown, {
+      passive: true,
+    });
+    renderer.domElement.addEventListener("pointermove", onPointerMove, {
+      passive: false,
+    });
+    renderer.domElement.addEventListener("pointerup", onPointerEnd, {
+      passive: true,
+    });
+    renderer.domElement.addEventListener("pointercancel", onPointerEnd, {
+      passive: true,
+    });
     window.addEventListener("resize", onWindowResize);
 
     return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerEnd);
+      renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       window.removeEventListener("resize", onWindowResize);
       renderer.setAnimationLoop(null);
       controls.dispose();
       if (loadedModel) {
         scene.remove(loadedModel);
+      }
+      if (overrideMaterial) {
+        overrideMaterial.dispose();
       }
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {

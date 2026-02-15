@@ -12,6 +12,7 @@ import About from "../pages/About/About";
 import Playground from "../pages/Projects/Tours/playground/playground";
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock/controls_pointerlock";
+import MenuModal from "../pages/Projects/3DSites/menu-modal/menu-modal";
 
 const AppRoutes = () => {
   return (
@@ -38,7 +39,9 @@ const AppRoutes = () => {
       <Route path="/controls_orbit" element={<Controls_Orbit />} />
       <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
 
-
+      {/*MODAL*/}
+      <Route path="/menu-modal" element={<MenuModal />} />
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

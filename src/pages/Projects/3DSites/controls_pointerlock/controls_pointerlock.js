@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { createOverrideMaterial } from "../components/override material";
+
+const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
 const PLAYER_GROUND_Y = 10;
 const PLAYER_SPAWN = new THREE.Vector3(40, PLAYER_GROUND_Y, -25);
@@ -82,7 +85,7 @@ function Controls_PointerLock() {
     const disposableMaterials = [];
     const disposableGeometries = [];
     const gltfLoader = new GLTFLoader();
-    const sampleGlbUrl = new URL("./sample.glb", import.meta.url).href;
+    const sampleGlbUrl = new URL("../../../../../public/projects/Sampleai/noiseless.glb", import.meta.url).href;
     const targetModelHeight = 42;
     const tapRaycaster = new THREE.Raycaster();
     const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -304,6 +307,14 @@ function Controls_PointerLock() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
     scene.fog = new THREE.Fog(0xffffff, 0, 750);
+    const overrideMaterial = createOverrideMaterial({
+      enabled: POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE,
+      grayValue: 180,
+    });
+
+    if (overrideMaterial) {
+      scene.overrideMaterial = overrideMaterial;
+    }
 
     const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 2.5);
     light.position.set(0.5, 1, 0.75);
@@ -706,6 +717,10 @@ function Controls_PointerLock() {
 
       if (loadedModel) {
         scene.remove(loadedModel);
+      }
+
+      if (overrideMaterial) {
+        overrideMaterial.dispose();
       }
 
       disposableGeometries.forEach((geometry) => geometry.dispose());

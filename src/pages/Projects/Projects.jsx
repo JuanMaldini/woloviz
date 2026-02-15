@@ -26,7 +26,6 @@ const Projects = () => (
 
           <Link
             to="/playground"
-            hint
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
             Tourfigurator
