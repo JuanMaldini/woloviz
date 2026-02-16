@@ -55,7 +55,14 @@ export const useMenuPauseController = ({ initialVisible = true } = {}) => {
   };
 };
 
-const MenuModal = ({ visible = true, onClose, currentPose }) => {
+const MenuModal = ({
+  visible = true,
+  onClose,
+  currentPose,
+  showOverwriteToggle = false,
+  overwriteEnabled = false,
+  onToggleOverwrite,
+}) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isVisibleInternal, setIsVisibleInternal] = useState(true);
 
@@ -126,21 +133,15 @@ const MenuModal = ({ visible = true, onClose, currentPose }) => {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex h-full w-full items-center justify-center px-0 py-3">
-      <div className="w-auto max-w-full text-black">
+    <div
+      className="absolute inset-0 z-50 flex h-full w-full items-center justify-center px-0 py-3"
+      onClick={handleClose}
+    >
+      <div
+        className="w-auto max-w-full text-black"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="inline-block bg-slate-200 shadow-sm">
-          <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
-            <p className="text-sm font-medium tracking-wide">Floorplan</p>
-            <button
-              type="button"
-              className="text-lg leading-none text-black/80 hover:text-black"
-              onClick={handleClose}
-              aria-label="Close menu"
-            >
-              X
-            </button>
-          </div>
-
           <div className="">
             <div className="flex items-center justify-center">
               <div className="inline-flex w-fit max-w-[100vw] flex-col items-center">
@@ -181,7 +182,12 @@ const MenuModal = ({ visible = true, onClose, currentPose }) => {
                 <p className="font-semibold tracking-wide">
                   Unit A-1204 · 3 rooms
                 </p>
-                <CurrentViewPositionPanel currentPose={currentPose} />
+                <CurrentViewPositionPanel
+                  currentPose={currentPose}
+                  showOverwriteToggle={showOverwriteToggle}
+                  overwriteEnabled={overwriteEnabled}
+                  onToggleOverwrite={onToggleOverwrite}
+                />
               </div>
               <p>68 m²· 2 rooms · 1 bathroom</p>
               <p>Living · Kitchen with bar</p>

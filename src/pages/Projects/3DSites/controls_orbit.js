@@ -2,17 +2,34 @@ import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverrideMaterial } from "./components/override_material";
+import { HideObjects } from "./components/HideObjects";
+import { createOverwriteMaterialController } from "./components/OverwriteMaterial";
 import MenuModal, { useMenuPauseController } from "./components/menu-modal";
 
-const ORBIT_OVERRIDE_MATERIAL_ACTIVE = false;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
 const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
+const INITIAL_HIDDEN_OBJECT_NAMES = [
+  "Cieloraso",
+  "TECHO_EXTERIOR",
+  "Cylinder001",
+  "Luz_poltrona",
+  "Garganta_cocina_1_1",
+  "Garganta_cocina_1_2",
+  "Garganta_cocina_1",
+  "Garganta_living",
+  "Object025_1",
+  "Object067_3",
+  "Line022",
+  "Line023",
+];
 
 function Controls_Orbit() {
   const containerRef = useRef(null);
+  const overwriteMaterialControllerRef = useRef(null);
   const [currentPose, setCurrentPose] = useState(null);
+  const [overwriteEnabled, setOverwriteEnabled] = useState(false);
+  const overwriteEnabledRef = useRef(false);
   const {
     isVisible: menuVisible,
     isVisibleRef: menuVisibleRef,
@@ -34,14 +51,10 @@ function Controls_Orbit() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xcccccc);
     scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
-    const overrideMaterial = createOverrideMaterial({
-      enabled: ORBIT_OVERRIDE_MATERIAL_ACTIVE,
-      grayValue: 180,
-    });
-
-    if (overrideMaterial) {
-      scene.overrideMaterial = overrideMaterial;
-    }
+    const overwriteMaterialController = createOverwriteMaterialController();
+    overwriteMaterialControllerRef.current = overwriteMaterialController;
+    overwriteMaterialController.setScene(scene);
+    overwriteMaterialController.setEnabled(overwriteEnabledRef.current);
 
     const camera = new THREE.PerspectiveCamera(
       60,
@@ -475,6 +488,11 @@ function Controls_Orbit() {
           controls.maxDistance = Math.max(100, radius * 1);
           camera.lookAt(finalCenter);
           controls.update();
+
+          HideObjects.hideInitialByNames({
+            model,
+            objectNames: INITIAL_HIDDEN_OBJECT_NAMES,
+          });
         },
         undefined,
         (error) => {
@@ -625,9 +643,8 @@ function Controls_Orbit() {
       if (loadedModel) {
         scene.remove(loadedModel);
       }
-      if (overrideMaterial) {
-        overrideMaterial.dispose();
-      }
+      overwriteMaterialController.dispose();
+      overwriteMaterialControllerRef.current = null;
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -651,6 +668,14 @@ function Controls_Orbit() {
       visible: menuVisible,
       currentPose,
       onClose: requestClose,
+      showOverwriteToggle: true,
+      overwriteEnabled,
+      onToggleOverwrite: () => {
+        const nextValue = !overwriteEnabledRef.current;
+        overwriteEnabledRef.current = nextValue;
+        setOverwriteEnabled(nextValue);
+        overwriteMaterialControllerRef.current?.setEnabled(nextValue);
+      },
     }),
   );
 }

@@ -2,10 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverrideMaterial } from "./components/override_material";
+import { createOverwriteMaterialController } from "./components/OverwriteMaterial";
 import MenuModal, { useMenuPauseController } from "./components/menu-modal";
-
-const POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE = true;
 
 const PLAYER_GROUND_Y = 10;
 const PLAYER_SPAWN = new THREE.Vector3(40, PLAYER_GROUND_Y, -25);
@@ -21,13 +19,18 @@ const COLLISION_MAX_WALKABLE_THICKNESS = 1.2;
 const COLLISION_MAX_OBSTACLE_SPAN = 28;
 const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
+const PLAYER_SPEED_MULTIPLY = 0.5;
+const PLAYER_LOOK_MULTIPLY = 0.3;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
 const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
 
 function Controls_PointerLock() {
   const containerRef = useRef(null);
+  const overwriteMaterialControllerRef = useRef(null);
   const [currentPose, setCurrentPose] = useState(null);
+  const [overwriteEnabled, setOverwriteEnabled] = useState(false);
+  const overwriteEnabledRef = useRef(false);
   const {
     isVisible: menuVisible,
     isVisibleRef: menuVisibleRef,
@@ -43,6 +46,16 @@ function Controls_PointerLock() {
       navigator.maxTouchPoints > 0;
     const canUsePointerLock =
       typeof document.body.requestPointerLock === "function" && !isTouchDevice;
+    const playerSpeedMultiply = THREE.MathUtils.clamp(
+      PLAYER_SPEED_MULTIPLY,
+      0,
+      1,
+    );
+    const playerLookMultiply = THREE.MathUtils.clamp(
+      PLAYER_LOOK_MULTIPLY,
+      0,
+      1,
+    );
     let touchNavigationStarted = false;
 
     if (!container) {
@@ -121,16 +134,18 @@ function Controls_PointerLock() {
     let lastTapTime = 0;
     let lastTapX = 0;
     let lastTapY = 0;
+    const lookSensitivity = touchLook.sensitivity * playerLookMultiply;
 
     const applyLookDelta = (deltaX, deltaY) => {
       lookEuler.setFromQuaternion(camera.quaternion);
-      lookEuler.y -= deltaX * touchLook.sensitivity;
-      lookEuler.x -= deltaY * touchLook.sensitivity;
+      lookEuler.y -= deltaX * lookSensitivity;
+      lookEuler.x -= deltaY * lookSensitivity;
       lookEuler.x = THREE.MathUtils.clamp(
         lookEuler.x,
         -touchLook.maxPitch,
         touchLook.maxPitch,
       );
+      lookEuler.z = 0;
       camera.quaternion.setFromEuler(lookEuler);
     };
 
@@ -339,15 +354,10 @@ function Controls_PointerLock() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
     scene.fog = new THREE.Fog(0xffffff, 0, 750);
-    const overrideMaterial = createOverrideMaterial({
-      // enabled: false,
-      enabled: POINTERLOCK_OVERRIDE_MATERIAL_ACTIVE,
-      grayValue: 180,
-    });
-
-    if (overrideMaterial) {
-      scene.overrideMaterial = overrideMaterial;
-    }
+    const overwriteMaterialController = createOverwriteMaterialController();
+    overwriteMaterialControllerRef.current = overwriteMaterialController;
+    overwriteMaterialController.setScene(scene);
+    overwriteMaterialController.setEnabled(overwriteEnabledRef.current);
 
     const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 2.5);
     light.position.set(0.5, 1, 0.75);
@@ -554,7 +564,6 @@ function Controls_PointerLock() {
 
           scene.add(model);
           model.updateMatrixWorld(true);
-
           obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
 
           if (ENABLE_MODEL_COLLISIONS) {
@@ -661,10 +670,10 @@ function Controls_PointerLock() {
         direction.normalize();
 
         if (moveForward || moveBackward) {
-          velocity.z -= direction.z * 400.0 * delta;
+          velocity.z -= direction.z * (400.0 * playerSpeedMultiply) * delta;
         }
         if (moveLeft || moveRight) {
-          velocity.x -= direction.x * 400.0 * delta;
+          velocity.x -= direction.x * (400.0 * playerSpeedMultiply) * delta;
         }
 
         if (onObject) {
@@ -751,9 +760,8 @@ function Controls_PointerLock() {
         scene.remove(loadedModel);
       }
 
-      if (overrideMaterial) {
-        overrideMaterial.dispose();
-      }
+      overwriteMaterialController.dispose();
+      overwriteMaterialControllerRef.current = null;
 
       disposableGeometries.forEach((geometry) => geometry.dispose());
       disposableMaterials.forEach((material) => material.dispose());
@@ -781,6 +789,14 @@ function Controls_PointerLock() {
       visible: menuVisible,
       currentPose,
       onClose: requestClose,
+      showOverwriteToggle: true,
+      overwriteEnabled,
+      onToggleOverwrite: () => {
+        const nextValue = !overwriteEnabledRef.current;
+        overwriteEnabledRef.current = nextValue;
+        setOverwriteEnabled(nextValue);
+        overwriteMaterialControllerRef.current?.setEnabled(nextValue);
+      },
     }),
   );
 }
