@@ -97,12 +97,12 @@ function Controls_PointerLock() {
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const handleActiveSlideChangeRef = useRef(() => {});
-  const [overwriteEnabled, setOverwriteEnabled] = useState(false);
+  const [overwriteEnabled, setOverwriteEnabled] = useState(true);
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [modelLoadError, setModelLoadError] = useState(false);
   const [loadedBytes, setLoadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
-  const overwriteEnabledRef = useRef(false);
+  const overwriteEnabledRef = useRef(true);
   const {
     isVisible: menuVisible,
     isVisibleRef: menuVisibleRef,
