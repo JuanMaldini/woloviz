@@ -284,23 +284,26 @@ const MenuModal = ({
     };
   }, []);
 
-  const handleClose = (event) => {
-    if (event?.preventDefault) {
-      event.preventDefault();
-    }
-    if (event?.stopPropagation) {
-      event.stopPropagation();
-    }
+  const handleClose = useCallback(
+    (event) => {
+      if (event?.preventDefault) {
+        event.preventDefault();
+      }
+      if (event?.stopPropagation) {
+        event.stopPropagation();
+      }
 
-    if (onClose) {
-      onClose(event);
-      return;
-    }
+      if (onClose) {
+        onClose(event);
+        return;
+      }
 
-    setIsVisibleInternal(false);
-  };
+      setIsVisibleInternal(false);
+    },
+    [onClose],
+  );
 
-  const showPrevious = () => {
+  const showPrevious = useCallback(() => {
     if (!slides.length) {
       return;
     }
@@ -308,9 +311,9 @@ const MenuModal = ({
     setActiveIndex((current) =>
       current === 0 ? slides.length - 1 : current - 1,
     );
-  };
+  }, [slides.length]);
 
-  const showNext = () => {
+  const showNext = useCallback(() => {
     if (!slides.length) {
       return;
     }
@@ -318,7 +321,7 @@ const MenuModal = ({
     setActiveIndex((current) =>
       current === slides.length - 1 ? 0 : current + 1,
     );
-  };
+  }, [slides.length]);
 
   const handleRequestScreenshot = () => {
     if (!onRequestScreenshot) {
@@ -363,7 +366,7 @@ const MenuModal = ({
     return () => {
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isVisible]);
+  }, [isVisible, handleClose, showPrevious, showNext]);
 
   if (!isPanelMounted) {
     return null;
@@ -373,7 +376,7 @@ const MenuModal = ({
     <div
       className={`absolute inset-0 z-50 flex h-full w-full items-end justify-center  px-2 pb-2 pt-10 transition-opacity duration-200 sm:px-3 sm:pb-3 ${
         isPanelOpen ? "" : "pointer-events-none"
-            }`}
+      }`}
       onClick={handleClose}
     >
       <div

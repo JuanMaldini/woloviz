@@ -64,34 +64,40 @@ const toDirectionFromRotation = (rotation) => {
 
 const DEFAULT_ORBIT_CAROUSEL_ITEMS = [
   {
-    title: "1",
+    title: "Floorplan",
     position: { x: 13.788, y: 101.014, z: 35.13 },
     rotation: { x: -1.292, y: 0.419, z: 0 },
     distance: 20,
   },
   {
-    title: "2",
-    position: { x: 13.895, y: 4.829, z: 11.275 },
-    rotation: { x: -0.358, y: 0.771, z: 0 },
+    title: "Elements",
+    position: { x: 10.619, y: 4.688, z: 11.336 },
+    rotation: { x: -0.3, y: -0.79, z: 0 },
     distance: 2.57,
   },
   {
-    title: "3",
-    position: { x: 11.053, y: 5.459, z: -3.31 },
-    rotation: { x: -0.144, y: 0.719, z: 0 },
-    distance: 13.268,
+    title: "Corner",
+    position: { x: 5.403, y: 5.413, z: -9.675 },
+    rotation: { x: -0.514, y: 0.799, z: 0 },
+    distance: 7.56,
   },
   {
-    title: "4",
+    title: "Time",
     position: { x: -26.154, y: 4.131, z: 6.65 },
     rotation: { x: -0.395, y: 1.724, z: 0 },
     distance: 3.874,
   },
   {
-    title: "5",
+    title: "Beginning",
     position: { x: -19.58, y: 5.565, z: -0.616 },
     rotation: { x: -0.191, y: -1.146, z: 0 },
     distance: 7.944,
+  },
+  {
+    title: "Solid",
+    position: { x: -5.04, y: 4.173, z: 12.758 },
+    rotation: { x: -0.358, y: 2.248, z: 0 },
+    distance: 6.586,
   },
 ];
 
@@ -230,6 +236,13 @@ function Controls_Orbit() {
     handleActiveSlideChangeRef.current = ({ slide }) => {
       if (!slide?.position) {
         return;
+      }
+
+      // Si hay una animación en curso, completarla inmediatamente antes de iniciar la nueva
+      if (smoothSlidePose.active) {
+        camera.position.copy(smoothSlidePose.endPosition);
+        controls.target.copy(smoothSlidePose.endTarget);
+        smoothSlidePose.active = false;
       }
 
       const nextPosition = new THREE.Vector3(

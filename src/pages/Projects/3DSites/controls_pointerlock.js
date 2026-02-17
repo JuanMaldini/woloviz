@@ -57,27 +57,27 @@ const toDirectionFromRotation = (rotation) => {
 
 const DEFAULT_POINTERLOCK_CAROUSEL_ITEMS = [
   {
-    title: "living",
+    title: "Living",
     position: { x: 40, y: PLAYER_GROUND_Y, z: -25 },
     rotation: { x: -0.087, y: 2.094, z: 0 },
   },
   {
-    title: "dining",
+    title: "Dining",
     position: { x: 3.531, y: 10, z: 6.855 },
     rotation: { x: -0.159, y: -2.11, z: 0 },
   },
   {
-    title: "bedroom",
+    title: "Bedroom",
     position: { x: -13.657, y: 10, z: 20.92 },
     rotation: { x: -0.291, y: 1.067, z: 0 },
   },
   {
-    title: "entry",
+    title: "Entry",
     position: { x: -43.989, y: 10, z: -7.416 },
     rotation: { x: 0.005, y: -1.578, z: 0 },
   },
   {
-    title: "space",
+    title: "Space",
     position: { x: 42.069, y: 10, z: 15.819 },
     rotation: { x: -0.501, y: 0.951, z: 0 },
   },
@@ -251,6 +251,13 @@ function Controls_PointerLock() {
     handleActiveSlideChangeRef.current = ({ slide }) => {
       if (!slide?.position || (!slide?.rotation && !slide?.direction)) {
         return;
+      }
+
+      // Si hay una animación en curso, completarla inmediatamente antes de iniciar la nueva
+      if (smoothSlidePose.active) {
+        controls.object.position.copy(smoothSlidePose.endPosition);
+        camera.quaternion.copy(smoothSlidePose.endQuaternion);
+        smoothSlidePose.active = false;
       }
 
       const directionVector = slide.rotation
