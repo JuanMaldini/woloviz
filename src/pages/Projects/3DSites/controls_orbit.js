@@ -176,7 +176,6 @@ function Controls_Orbit() {
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.listenToKeyEvents(window);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
@@ -221,20 +220,9 @@ function Controls_Orbit() {
     let lastMouseClickX = 0;
     let lastMouseClickY = 0;
 
-    const verticalMotion = {
-      moveUp: false,
-      moveDown: false,
-      velocity: 0,
-      acceleration: 2,
-      damping: 7,
-      maxSpeed: 3,
-      touchSensitivity: 0.18,
-    };
     const activeTouchPoints = new Map();
-    const twoFingerVertical = {
-      active: false,
-      lastCentroidY: 0,
-      lastPinchDistance: 0,
+    const pinchGesture = {
+      previousPinchDistance: 0,
     };
 
     handleActiveSlideChangeRef.current = ({ slide }) => {
@@ -268,29 +256,6 @@ function Controls_Orbit() {
       smoothSlidePose.endTarget.copy(nextTarget);
       smoothSlidePose.startTime = performance.now();
       smoothSlidePose.active = true;
-    };
-
-    const isEditableElement = (target) => {
-      if (!target) {
-        return false;
-      }
-
-      const tagName = target.tagName;
-      return (
-        target.isContentEditable ||
-        tagName === "INPUT" ||
-        tagName === "TEXTAREA" ||
-        tagName === "SELECT"
-      );
-    };
-
-    const getTouchCentroidY = () => {
-      let totalY = 0;
-      activeTouchPoints.forEach((point) => {
-        totalY += point.y;
-      });
-
-      return totalY / activeTouchPoints.size;
     };
 
     const getTouchDistance = () => {
@@ -335,27 +300,6 @@ function Controls_Orbit() {
       smoothTravel.active = true;
     };
 
-    const beginTwoFingerVerticalIfNeeded = () => {
-      if (menuVisibleRef.current) {
-        return;
-      }
-
-      if (activeTouchPoints.size === 2 && !twoFingerVertical.active) {
-        twoFingerVertical.active = true;
-        twoFingerVertical.lastCentroidY = getTouchCentroidY();
-        twoFingerVertical.lastPinchDistance = getTouchDistance();
-        controls.enabled = false;
-      }
-    };
-
-    const stopTwoFingerVerticalIfNeeded = () => {
-      if (twoFingerVertical.active && activeTouchPoints.size < 2) {
-        twoFingerVertical.active = false;
-        twoFingerVertical.lastPinchDistance = 0;
-        controls.enabled = !menuVisibleRef.current;
-      }
-    };
-
     const onWheel = (event) => {
       if (menuVisibleRef.current) {
         return;
@@ -373,44 +317,8 @@ function Controls_Orbit() {
 
     const onKeyDown = (event) => {
       if (event.code === "Escape") {
-        verticalMotion.moveUp = false;
-        verticalMotion.moveDown = false;
-        verticalMotion.velocity = 0;
         requestPause();
         event.preventDefault();
-        return;
-      }
-
-      if (menuVisibleRef.current) {
-        return;
-      }
-
-      if (isEditableElement(event.target)) {
-        return;
-      }
-
-      if (event.code === "KeyE") {
-        verticalMotion.moveUp = true;
-        event.preventDefault();
-      }
-
-      if (event.code === "KeyQ") {
-        verticalMotion.moveDown = true;
-        event.preventDefault();
-      }
-    };
-
-    const onKeyUp = (event) => {
-      if (menuVisibleRef.current) {
-        return;
-      }
-
-      if (event.code === "KeyE") {
-        verticalMotion.moveUp = false;
-      }
-
-      if (event.code === "KeyQ") {
-        verticalMotion.moveDown = false;
       }
     };
 
@@ -437,8 +345,9 @@ function Controls_Orbit() {
         x: event.clientX,
         y: event.clientY,
       });
-
-      beginTwoFingerVerticalIfNeeded();
+      if (activeTouchPoints.size === 2) {
+        pinchGesture.previousPinchDistance = getTouchDistance();
+      }
     };
 
     const onPointerMove = (event) => {
@@ -472,33 +381,21 @@ function Controls_Orbit() {
         y: event.clientY,
       });
 
-      beginTwoFingerVerticalIfNeeded();
-
-      if (!twoFingerVertical.active || activeTouchPoints.size !== 2) {
+      if (activeTouchPoints.size !== 2) {
+        pinchGesture.previousPinchDistance = 0;
         return;
       }
-
-      const centroidY = getTouchCentroidY();
-      const deltaY = centroidY - twoFingerVertical.lastCentroidY;
-      twoFingerVertical.lastCentroidY = centroidY;
-
-      verticalMotion.velocity += deltaY * verticalMotion.touchSensitivity;
-      verticalMotion.velocity = THREE.MathUtils.clamp(
-        verticalMotion.velocity,
-        -verticalMotion.maxSpeed,
-        verticalMotion.maxSpeed,
-      );
 
       const pinchDistance = getTouchDistance();
       applyOrbitPinchZoom({
         camera,
         target: controls.target,
-        previousPinchDistance: twoFingerVertical.lastPinchDistance,
+        previousPinchDistance: pinchGesture.previousPinchDistance,
         pinchDistance,
         minDistance: controls.minDistance,
         maxDistance: controls.maxDistance,
       });
-      twoFingerVertical.lastPinchDistance = pinchDistance;
+      pinchGesture.previousPinchDistance = pinchDistance;
       event.preventDefault();
     };
 
@@ -512,7 +409,9 @@ function Controls_Orbit() {
         }
 
         activeTouchPoints.delete(event.pointerId);
-        stopTwoFingerVerticalIfNeeded();
+        if (activeTouchPoints.size < 2) {
+          pinchGesture.previousPinchDistance = 0;
+        }
         return;
       }
 
@@ -573,7 +472,9 @@ function Controls_Orbit() {
       }
 
       activeTouchPoints.delete(event.pointerId);
-      stopTwoFingerVerticalIfNeeded();
+      if (activeTouchPoints.size < 2) {
+        pinchGesture.previousPinchDistance = 0;
+      }
     };
 
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 3);
@@ -757,14 +658,10 @@ function Controls_Orbit() {
 
     const animate = () => {
       const time = performance.now();
-      const delta = (time - prevTime) / 1000;
 
       if (menuVisibleRef.current) {
         controls.enabled = false;
         smoothTravel.active = false;
-        verticalMotion.moveUp = false;
-        verticalMotion.moveDown = false;
-        verticalMotion.velocity = 0;
 
         if (smoothSlidePose.active) {
           const t = Math.min(
@@ -796,9 +693,7 @@ function Controls_Orbit() {
         return;
       }
 
-      if (!twoFingerVertical.active) {
-        controls.enabled = true;
-      }
+      controls.enabled = true;
 
       if (smoothTravel.active) {
         const t = Math.min(
@@ -844,27 +739,6 @@ function Controls_Orbit() {
         }
       }
 
-      if (verticalMotion.moveUp && !verticalMotion.moveDown) {
-        verticalMotion.velocity += verticalMotion.acceleration * delta;
-      } else if (verticalMotion.moveDown && !verticalMotion.moveUp) {
-        verticalMotion.velocity -= verticalMotion.acceleration * delta;
-      } else {
-        verticalMotion.velocity -=
-          verticalMotion.velocity * Math.min(1, verticalMotion.damping * delta);
-      }
-
-      verticalMotion.velocity = THREE.MathUtils.clamp(
-        verticalMotion.velocity,
-        -verticalMotion.maxSpeed,
-        verticalMotion.maxSpeed,
-      );
-
-      const verticalDelta = verticalMotion.velocity * delta;
-      if (verticalDelta !== 0) {
-        camera.position.y += verticalDelta;
-        controls.target.y += verticalDelta;
-      }
-
       controls.update();
       renderer.render(scene, camera);
       prevTime = time;
@@ -872,7 +746,6 @@ function Controls_Orbit() {
 
     renderer.setAnimationLoop(animate);
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
     renderer.domElement.addEventListener("pointerdown", onPointerDown, {
       passive: true,
     });
@@ -893,7 +766,6 @@ function Controls_Orbit() {
     return () => {
       isDisposed = true;
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerEnd);
