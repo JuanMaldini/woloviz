@@ -5,6 +5,11 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { HideObjects } from "./components/HideObjects";
 import LoaderViewer from "./components/LoaderViewer";
 import {
+  applyOrbitPinchZoom,
+  applyOrbitWheelZoom,
+  resolveSlideOrbitDistance,
+} from "./components/functions/orbitZoom";
+import {
   createOverwriteMaterialController,
   createOverwriteToggleHandler,
 } from "./components/OverwriteMaterial";
@@ -17,7 +22,6 @@ import MenuModal, {
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
 const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
-const DEFAULT_ORBIT_SLIDE_DISTANCE = 20;
 const INITIAL_HIDDEN_OBJECT_NAMES = [
   "Cieloraso",
   "TECHO_EXTERIOR",
@@ -176,6 +180,7 @@ function Controls_Orbit() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
+    controls.enableZoom = false;
     controls.minDistance = 2;
     controls.maxDistance = 6000;
     controls.maxPolarAngle = Math.PI / 2;
@@ -229,6 +234,7 @@ function Controls_Orbit() {
     const twoFingerVertical = {
       active: false,
       lastCentroidY: 0,
+      lastPinchDistance: 0,
     };
 
     handleActiveSlideChangeRef.current = ({ slide }) => {
@@ -244,14 +250,13 @@ function Controls_Orbit() {
       const nextDirection = slide.rotation
         ? toDirectionFromRotation(slide.rotation)
         : toNormalizedDirectionVector(slide.direction);
-      const slideDistance = Number(slide.distance);
-      const cameraDistance = Number.isFinite(slideDistance)
-        ? Math.max(2, slideDistance)
-        : Math.max(
-            2,
-            camera.position.distanceTo(controls.target) ||
-              DEFAULT_ORBIT_SLIDE_DISTANCE,
-          );
+      const cameraDistance = resolveSlideOrbitDistance({
+        slideDistance: slide.distance,
+        camera,
+        target: controls.target,
+        minDistance: controls.minDistance,
+        maxDistance: controls.maxDistance,
+      });
       const nextTarget = nextPosition
         .clone()
         .add(nextDirection.multiplyScalar(cameraDistance));
@@ -286,6 +291,17 @@ function Controls_Orbit() {
       });
 
       return totalY / activeTouchPoints.size;
+    };
+
+    const getTouchDistance = () => {
+      if (activeTouchPoints.size !== 2) {
+        return 0;
+      }
+
+      const points = Array.from(activeTouchPoints.values());
+      const dx = points[0].x - points[1].x;
+      const dy = points[0].y - points[1].y;
+      return Math.sqrt(dx * dx + dy * dy);
     };
 
     const tryStartTravelToScreenPoint = (clientX, clientY) => {
@@ -327,6 +343,7 @@ function Controls_Orbit() {
       if (activeTouchPoints.size === 2 && !twoFingerVertical.active) {
         twoFingerVertical.active = true;
         twoFingerVertical.lastCentroidY = getTouchCentroidY();
+        twoFingerVertical.lastPinchDistance = getTouchDistance();
         controls.enabled = false;
       }
     };
@@ -334,8 +351,24 @@ function Controls_Orbit() {
     const stopTwoFingerVerticalIfNeeded = () => {
       if (twoFingerVertical.active && activeTouchPoints.size < 2) {
         twoFingerVertical.active = false;
+        twoFingerVertical.lastPinchDistance = 0;
         controls.enabled = !menuVisibleRef.current;
       }
+    };
+
+    const onWheel = (event) => {
+      if (menuVisibleRef.current) {
+        return;
+      }
+
+      applyOrbitWheelZoom({
+        camera,
+        target: controls.target,
+        deltaY: event.deltaY,
+        minDistance: controls.minDistance,
+        maxDistance: controls.maxDistance,
+      });
+      event.preventDefault();
     };
 
     const onKeyDown = (event) => {
@@ -401,6 +434,7 @@ function Controls_Orbit() {
       }
 
       activeTouchPoints.set(event.pointerId, {
+        x: event.clientX,
         y: event.clientY,
       });
 
@@ -434,6 +468,7 @@ function Controls_Orbit() {
       }
 
       activeTouchPoints.set(event.pointerId, {
+        x: event.clientX,
         y: event.clientY,
       });
 
@@ -453,6 +488,17 @@ function Controls_Orbit() {
         -verticalMotion.maxSpeed,
         verticalMotion.maxSpeed,
       );
+
+      const pinchDistance = getTouchDistance();
+      applyOrbitPinchZoom({
+        camera,
+        target: controls.target,
+        previousPinchDistance: twoFingerVertical.lastPinchDistance,
+        pinchDistance,
+        minDistance: controls.minDistance,
+        maxDistance: controls.maxDistance,
+      });
+      twoFingerVertical.lastPinchDistance = pinchDistance;
       event.preventDefault();
     };
 
@@ -839,6 +885,9 @@ function Controls_Orbit() {
     renderer.domElement.addEventListener("pointercancel", onPointerEnd, {
       passive: true,
     });
+    renderer.domElement.addEventListener("wheel", onWheel, {
+      passive: false,
+    });
     window.addEventListener("resize", onWindowResize);
 
     return () => {
@@ -849,6 +898,7 @@ function Controls_Orbit() {
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerEnd);
       renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
+      renderer.domElement.removeEventListener("wheel", onWheel);
       window.removeEventListener("resize", onWindowResize);
       renderer.setAnimationLoop(null);
       controls.dispose();
