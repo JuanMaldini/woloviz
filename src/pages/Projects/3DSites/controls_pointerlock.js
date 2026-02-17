@@ -8,7 +8,10 @@ import {
   createOverwriteToggleHandler,
 } from "./components/OverwriteMaterial";
 import { createScreenshotRequestHandler } from "./components/Screenshot";
-import MenuModal, { useMenuPauseController } from "./components/menu-modal";
+import MenuModal, {
+  FloatingMenuToggle,
+  useMenuPauseController,
+} from "./components/menu-modal";
 
 const PLAYER_GROUND_Y = 10;
 const MODEL_POSITION_OFFSET = new THREE.Vector3(0, 0.75, 0);
@@ -107,6 +110,27 @@ function Controls_PointerLock() {
     requestResume,
     requestClose,
   } = useMenuPauseController({ initialVisible: true });
+
+  const handleOpenMenu = useCallback(
+    (event) => {
+      if (event?.preventDefault) {
+        event.preventDefault();
+      }
+      if (event?.stopPropagation) {
+        event.stopPropagation();
+      }
+
+      if (
+        document.pointerLockElement &&
+        typeof document.exitPointerLock === "function"
+      ) {
+        document.exitPointerLock();
+      }
+
+      requestPause();
+    },
+    [requestPause],
+  );
 
   const handleActiveSlideChange = useCallback(({ slide }) => {
     handleActiveSlideChangeRef.current({ slide });
@@ -981,6 +1005,12 @@ function Controls_PointerLock() {
         touchAction: "none",
       },
     },
+    React.createElement(FloatingMenuToggle, {
+      visible: !menuVisible,
+      isOpen: menuVisible,
+      onToggle: handleOpenMenu,
+      ariaLabel: "Open menu",
+    }),
     React.createElement(LoaderViewer, {
       visible: isModelLoading || modelLoadError,
       loadedBytes,

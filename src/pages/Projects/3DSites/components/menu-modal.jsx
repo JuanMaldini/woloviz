@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  IoIosInformationCircle,
+  IoIosInformationCircleOutline,
+} from "react-icons/io";
 import CurrentViewPositionPanel from "./CurrentViewPositionPanel";
 
 const toRoundedValue = (value) => Number(Number(value || 0).toFixed(3));
@@ -154,14 +158,50 @@ export const useMenuPauseController = ({ initialVisible = true } = {}) => {
     setIsVisible(false);
   }, []);
 
+  const requestToggle = useCallback((event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    if (event?.stopPropagation) {
+      event.stopPropagation();
+    }
+
+    setIsVisible((current) => !current);
+  }, []);
+
   return {
     isVisible,
     isVisibleRef,
     requestPause,
     requestResume,
     requestClose,
+    requestToggle,
     setIsVisible,
   };
+};
+
+export const FloatingMenuToggle = ({
+  visible = true,
+  isOpen = false,
+  onToggle,
+  ariaLabel,
+}) => {
+  if (!visible) {
+    return null;
+  }
+
+  const Icon = isOpen ? IoIosInformationCircle : IoIosInformationCircleOutline;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={ariaLabel || (isOpen ? "Close menu" : "Open menu")}
+      className="absolute right-3 top-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded border border-white/80 bg-white/90 text-slate-900 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:h-10 sm:w-10"
+    >
+      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+    </button>
+  );
 };
 
 const MenuModal = ({

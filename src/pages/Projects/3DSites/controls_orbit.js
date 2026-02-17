@@ -9,7 +9,10 @@ import {
   createOverwriteToggleHandler,
 } from "./components/OverwriteMaterial";
 import { createScreenshotRequestHandler } from "./components/Screenshot";
-import MenuModal, { useMenuPauseController } from "./components/menu-modal";
+import MenuModal, {
+  FloatingMenuToggle,
+  useMenuPauseController,
+} from "./components/menu-modal";
 
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
@@ -113,6 +116,7 @@ function Controls_Orbit() {
     isVisibleRef: menuVisibleRef,
     requestPause,
     requestClose,
+    requestToggle,
   } = useMenuPauseController({ initialVisible: true });
 
   const handleActiveSlideChange = useCallback(({ slide }) => {
@@ -888,6 +892,12 @@ function Controls_Orbit() {
         touchAction: "none",
       },
     },
+    React.createElement(FloatingMenuToggle, {
+      visible: !menuVisible,
+      isOpen: menuVisible,
+      onToggle: requestToggle,
+      ariaLabel: "Open menu",
+    }),
     React.createElement(LoaderViewer, {
       visible: isModelLoading || modelLoadError,
       loadedBytes,
