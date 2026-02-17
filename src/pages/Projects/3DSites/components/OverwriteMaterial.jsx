@@ -1,13 +1,12 @@
 import * as THREE from "three";
 import { BsCircle, BsCircleFill } from "react-icons/bs";
 
-const OVERWRITE_GRAY_COLOR = 0xb4b4b4;
-
 const createOverwriteSceneMaterial = () =>
   new THREE.MeshStandardMaterial({
-    color: OVERWRITE_GRAY_COLOR,
-    roughness: 1,
-    metalness: 0,
+    color: 0xb4b4b4,
+    roughness: 0.7,
+    metalness: 0.06,
+    envMapIntensity: 0.45,
     side: THREE.DoubleSide,
   });
 
@@ -58,15 +57,33 @@ export const createOverwriteMaterialController = () => {
   };
 };
 
-export const OverwriteMaterialToggle = ({ enabled = false, onToggle }) => (
+export const createOverwriteToggleHandler = ({
+  overwriteEnabledRef,
+  setOverwriteEnabled,
+  overwriteMaterialControllerRef,
+}) => {
+  return () => {
+    const nextValue = !overwriteEnabledRef.current;
+    overwriteEnabledRef.current = nextValue;
+    setOverwriteEnabled(nextValue);
+    overwriteMaterialControllerRef.current?.setEnabled(nextValue);
+  };
+};
+
+export const OverwriteMaterialToggle = ({
+  enabled = false,
+  onToggle,
+  disabled = false,
+}) => (
   <button
     type="button"
     onClick={onToggle}
+    disabled={disabled}
     aria-label={
       enabled ? "Overwrite material enabled" : "Overwrite material disabled"
     }
     title={enabled ? "Overwrite material: ON" : "Overwrite material: OFF"}
-    className="inline-flex h-8 w-8 items-center justify-center rounded border border-black/35 bg-white text-black/85 shadow-sm transition-colors hover:bg-black/10"
+    className="inline-flex h-8 w-8 items-center justify-center rounded border border-black/35 bg-white text-black/85 shadow-sm transition-colors hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-50"
   >
     {enabled ? (
       <BsCircleFill className="h-4 w-4" />

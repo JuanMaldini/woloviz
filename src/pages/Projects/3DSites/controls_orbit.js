@@ -1,14 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { HideObjects } from "./components/HideObjects";
-import { createOverwriteMaterialController } from "./components/OverwriteMaterial";
+import LoaderViewer from "./components/LoaderViewer";
+import {
+  createOverwriteMaterialController,
+  createOverwriteToggleHandler,
+} from "./components/OverwriteMaterial";
+import { createScreenshotRequestHandler } from "./components/Screenshot";
 import MenuModal, { useMenuPauseController } from "./components/menu-modal";
 
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
 const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
+const DEFAULT_ORBIT_SLIDE_DISTANCE = 20;
 const INITIAL_HIDDEN_OBJECT_NAMES = [
   "Cieloraso",
   "TECHO_EXTERIOR",
@@ -24,11 +30,83 @@ const INITIAL_HIDDEN_OBJECT_NAMES = [
   "Line023",
 ];
 
+const toNormalizedDirectionVector = (direction) => {
+  const vector = new THREE.Vector3(
+    Number(direction?.x || 0),
+    Number(direction?.y || 0),
+    Number(direction?.z || -1),
+  );
+
+  if (vector.lengthSq() < 1e-6) {
+    return new THREE.Vector3(0, 0, -1);
+  }
+
+  return vector.normalize();
+};
+
+const toDirectionFromRotation = (rotation) => {
+  const euler = new THREE.Euler(
+    Number(rotation?.x || 0),
+    Number(rotation?.y || 0),
+    Number(rotation?.z || 0),
+    "YXZ",
+  );
+
+  return new THREE.Vector3(0, 0, -1).applyEuler(euler).normalize();
+};
+
+const DEFAULT_ORBIT_CAROUSEL_ITEMS = [
+  {
+    title: "1",
+    position: { x: 12.007, y: 100.857, z: 31.516 },
+    rotation: { x: -1.265, y: 0.419, z: 0 },
+    distance: 20,
+  },
+  {
+    title: "2",
+    position: { x: 13.895, y: 4.829, z: 11.275 },
+    rotation: { x: -0.358, y: 0.771, z: 0 },
+    distance: 2.57,
+  },
+  {
+    title: "3",
+    position: { x: 11.053, y: 5.459, z: -3.31 },
+    rotation: { x: -0.144, y: 0.719, z: 0 },
+    distance: 13.268,
+  },
+  {
+    title: "4",
+    position: { x: -26.154, y: 4.131, z: 6.65 },
+    rotation: { x: -0.395, y: 1.724, z: 0 },
+    distance: 3.874,
+  },
+  {
+    title: "5",
+    position: { x: -19.58, y: 5.565, z: -0.616 },
+    rotation: { x: -0.191, y: -1.146, z: 0 },
+    distance: 7.944,
+  },
+];
+
+const INITIAL_ORBIT_ITEM = DEFAULT_ORBIT_CAROUSEL_ITEMS[0] ?? {};
+const INITIAL_ORBIT_POSITION = {
+  x: Number(INITIAL_ORBIT_ITEM.position?.x || 0),
+  y: Number(INITIAL_ORBIT_ITEM.position?.y || 0),
+  z: Number(INITIAL_ORBIT_ITEM.position?.z || 0),
+};
+
 function Controls_Orbit() {
   const containerRef = useRef(null);
   const overwriteMaterialControllerRef = useRef(null);
-  const [currentPose, setCurrentPose] = useState(null);
+  const rendererRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const handleActiveSlideChangeRef = useRef(() => {});
   const [overwriteEnabled, setOverwriteEnabled] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  const [modelLoadError, setModelLoadError] = useState(false);
+  const [loadedBytes, setLoadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
   const overwriteEnabledRef = useRef(false);
   const {
     isVisible: menuVisible,
@@ -37,6 +115,10 @@ function Controls_Orbit() {
     requestClose,
   } = useMenuPauseController({ initialVisible: true });
 
+  const handleActiveSlideChange = useCallback(({ slide }) => {
+    handleActiveSlideChangeRef.current({ slide });
+  }, []);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
@@ -44,11 +126,13 @@ function Controls_Orbit() {
     }
 
     let loadedModel = null;
+    let isDisposed = false;
     const gltfLoader = new GLTFLoader();
     const sampleGlbCandidates = [NOISELESS_GLB_URL];
     const targetModelHeight = 24;
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color(0xcccccc);
     scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
     const overwriteMaterialController = createOverwriteMaterialController();
@@ -62,12 +146,21 @@ function Controls_Orbit() {
       1,
       1000,
     );
-    camera.position.set(400, 200, 0);
+    cameraRef.current = camera;
+    camera.position.set(
+      INITIAL_ORBIT_POSITION.x,
+      INITIAL_ORBIT_POSITION.y,
+      INITIAL_ORBIT_POSITION.z,
+    );
 
     const isTouchDevice =
       window.matchMedia("(pointer: coarse)").matches ||
       navigator.maxTouchPoints > 0;
-    const renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isTouchDevice,
+      preserveDrawingBuffer: true,
+    });
+    rendererRef.current = renderer;
     renderer.setPixelRatio(
       isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2),
     );
@@ -80,17 +173,24 @@ function Controls_Orbit() {
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
     controls.minDistance = 2;
-    controls.maxDistance = 5000;
+    controls.maxDistance = 6000;
     controls.maxPolarAngle = Math.PI / 2;
     const hitRaycaster = new THREE.Raycaster();
     const hitPointerNdc = new THREE.Vector2();
     const hitPoint = new THREE.Vector3();
-    const lookDirectionVector = new THREE.Vector3();
-    let lastPoseSnapshotTime = 0;
     const smoothTravel = {
       active: false,
       startTime: 0,
       duration: 520,
+      startTarget: new THREE.Vector3(),
+      endTarget: new THREE.Vector3(),
+    };
+    const smoothSlidePose = {
+      active: false,
+      startTime: 0,
+      duration: 620,
+      startPosition: new THREE.Vector3(),
+      endPosition: new THREE.Vector3(),
       startTarget: new THREE.Vector3(),
       endTarget: new THREE.Vector3(),
     };
@@ -125,6 +225,40 @@ function Controls_Orbit() {
     const twoFingerVertical = {
       active: false,
       lastCentroidY: 0,
+    };
+
+    handleActiveSlideChangeRef.current = ({ slide }) => {
+      if (!slide?.position) {
+        return;
+      }
+
+      const nextPosition = new THREE.Vector3(
+        Number(slide.position.x || 0),
+        Number(slide.position.y || 0),
+        Number(slide.position.z || 0),
+      );
+      const nextDirection = slide.rotation
+        ? toDirectionFromRotation(slide.rotation)
+        : toNormalizedDirectionVector(slide.direction);
+      const slideDistance = Number(slide.distance);
+      const cameraDistance = Number.isFinite(slideDistance)
+        ? Math.max(2, slideDistance)
+        : Math.max(
+            2,
+            camera.position.distanceTo(controls.target) ||
+              DEFAULT_ORBIT_SLIDE_DISTANCE,
+          );
+      const nextTarget = nextPosition
+        .clone()
+        .add(nextDirection.multiplyScalar(cameraDistance));
+
+      smoothTravel.active = false;
+      smoothSlidePose.startPosition.copy(camera.position);
+      smoothSlidePose.endPosition.copy(nextPosition);
+      smoothSlidePose.startTarget.copy(controls.target);
+      smoothSlidePose.endTarget.copy(nextTarget);
+      smoothSlidePose.startTime = performance.now();
+      smoothSlidePose.active = true;
     };
 
     const isEditableElement = (target) => {
@@ -405,7 +539,18 @@ function Controls_Orbit() {
 
     const loadSampleModel = (candidateIndex = 0, retryAttempt = 0) => {
       if (candidateIndex >= sampleGlbCandidates.length) {
+        if (!isDisposed) {
+          setIsModelLoading(false);
+          setModelLoadError(true);
+        }
         return;
+      }
+
+      if (!isDisposed) {
+        setIsModelLoading(true);
+        setModelLoadError(false);
+        setLoadedBytes(0);
+        setTotalBytes(0);
       }
 
       const baseGlbUrl = sampleGlbCandidates[candidateIndex];
@@ -417,6 +562,10 @@ function Controls_Orbit() {
       gltfLoader.load(
         sampleGlbUrl,
         (gltf) => {
+          if (isDisposed) {
+            return;
+          }
+
           const model = gltf.scene;
           loadedModel = model;
 
@@ -489,13 +638,35 @@ function Controls_Orbit() {
           camera.lookAt(finalCenter);
           controls.update();
 
+          if (INITIAL_ORBIT_ITEM.position) {
+            handleActiveSlideChangeRef.current({
+              slide: INITIAL_ORBIT_ITEM,
+            });
+          }
+
           HideObjects.hideInitialByNames({
             model,
             objectNames: INITIAL_HIDDEN_OBJECT_NAMES,
           });
+
+          setIsModelLoading(false);
+          setModelLoadError(false);
         },
-        undefined,
+        (event) => {
+          if (isDisposed) {
+            return;
+          }
+
+          const nextLoaded = Number(event?.loaded || 0);
+          const nextTotal = Number(event?.total || 0);
+          setLoadedBytes(nextLoaded);
+          setTotalBytes(nextTotal > 0 ? nextTotal : 0);
+        },
         (error) => {
+          if (isDisposed) {
+            return;
+          }
+
           const statusCode = Number(error?.target?.status || 0);
           const isGatewayError = statusCode === 502;
           const canRetry = retryAttempt < GLB_MAX_RETRIES;
@@ -510,7 +681,11 @@ function Controls_Orbit() {
 
           if (candidateIndex < sampleGlbCandidates.length - 1) {
             loadSampleModel(candidateIndex + 1);
+            return;
           }
+
+          setIsModelLoading(false);
+          setModelLoadError(true);
         },
       );
     };
@@ -534,29 +709,38 @@ function Controls_Orbit() {
       const time = performance.now();
       const delta = (time - prevTime) / 1000;
 
-      if (time - lastPoseSnapshotTime >= 120) {
-        camera.getWorldDirection(lookDirectionVector);
-        setCurrentPose({
-          position: {
-            x: camera.position.x,
-            y: camera.position.y,
-            z: camera.position.z,
-          },
-          lookDirection: {
-            x: lookDirectionVector.x,
-            y: lookDirectionVector.y,
-            z: lookDirectionVector.z,
-          },
-        });
-        lastPoseSnapshotTime = time;
-      }
-
       if (menuVisibleRef.current) {
         controls.enabled = false;
         smoothTravel.active = false;
         verticalMotion.moveUp = false;
         verticalMotion.moveDown = false;
         verticalMotion.velocity = 0;
+
+        if (smoothSlidePose.active) {
+          const t = Math.min(
+            (time - smoothSlidePose.startTime) / smoothSlidePose.duration,
+            1,
+          );
+          const eased = t * (2 - t);
+
+          camera.position.lerpVectors(
+            smoothSlidePose.startPosition,
+            smoothSlidePose.endPosition,
+            eased,
+          );
+          controls.target.lerpVectors(
+            smoothSlidePose.startTarget,
+            smoothSlidePose.endTarget,
+            eased,
+          );
+
+          if (t >= 1) {
+            smoothSlidePose.active = false;
+          }
+        }
+
+        controls.update();
+
         renderer.render(scene, camera);
         prevTime = time;
         return;
@@ -584,6 +768,29 @@ function Controls_Orbit() {
 
         if (t >= 1) {
           smoothTravel.active = false;
+        }
+      }
+
+      if (smoothSlidePose.active) {
+        const t = Math.min(
+          (time - smoothSlidePose.startTime) / smoothSlidePose.duration,
+          1,
+        );
+        const eased = t * (2 - t);
+
+        camera.position.lerpVectors(
+          smoothSlidePose.startPosition,
+          smoothSlidePose.endPosition,
+          eased,
+        );
+        controls.target.lerpVectors(
+          smoothSlidePose.startTarget,
+          smoothSlidePose.endTarget,
+          eased,
+        );
+
+        if (t >= 1) {
+          smoothSlidePose.active = false;
         }
       }
 
@@ -631,6 +838,7 @@ function Controls_Orbit() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
+      isDisposed = true;
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
@@ -645,12 +853,28 @@ function Controls_Orbit() {
       }
       overwriteMaterialController.dispose();
       overwriteMaterialControllerRef.current = null;
+      handleActiveSlideChangeRef.current = () => {};
+      sceneRef.current = null;
+      cameraRef.current = null;
+      rendererRef.current = null;
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
       }
     };
   }, []);
+
+  const handleRequestScreenshot = createScreenshotRequestHandler({
+    rendererRef,
+    sceneRef,
+    cameraRef,
+  });
+
+  const handleToggleOverwrite = createOverwriteToggleHandler({
+    overwriteEnabledRef,
+    setOverwriteEnabled,
+    overwriteMaterialControllerRef,
+  });
 
   return React.createElement(
     "div",
@@ -664,18 +888,20 @@ function Controls_Orbit() {
         touchAction: "none",
       },
     },
+    React.createElement(LoaderViewer, {
+      visible: isModelLoading || modelLoadError,
+      loadedBytes,
+      totalBytes,
+      hasError: modelLoadError,
+    }),
     React.createElement(MenuModal, {
       visible: menuVisible,
-      currentPose,
+      carouselPositions: DEFAULT_ORBIT_CAROUSEL_ITEMS,
       onClose: requestClose,
-      showOverwriteToggle: true,
       overwriteEnabled,
-      onToggleOverwrite: () => {
-        const nextValue = !overwriteEnabledRef.current;
-        overwriteEnabledRef.current = nextValue;
-        setOverwriteEnabled(nextValue);
-        overwriteMaterialControllerRef.current?.setEnabled(nextValue);
-      },
+      onActiveSlideChange: handleActiveSlideChange,
+      onRequestScreenshot: handleRequestScreenshot,
+      onToggleOverwrite: handleToggleOverwrite,
     }),
   );
 }

@@ -1,15 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { createOverwriteMaterialController } from "./components/OverwriteMaterial";
+import LoaderViewer from "./components/LoaderViewer";
+import {
+  createOverwriteMaterialController,
+  createOverwriteToggleHandler,
+} from "./components/OverwriteMaterial";
+import { createScreenshotRequestHandler } from "./components/Screenshot";
 import MenuModal, { useMenuPauseController } from "./components/menu-modal";
 
 const PLAYER_GROUND_Y = 10;
-const PLAYER_SPAWN = new THREE.Vector3(40, PLAYER_GROUND_Y, -25);
 const MODEL_POSITION_OFFSET = new THREE.Vector3(0, 0.75, 0);
-const PLAYER_INITIAL_YAW = THREE.MathUtils.degToRad(120);
-const PLAYER_INITIAL_PITCH = THREE.MathUtils.degToRad(-5);
 const PLAYER_COLLIDER_RADIUS = 1.2;
 const PLAYER_COLLIDER_CENTER_Y_OFFSET =
   PLAYER_GROUND_Y - PLAYER_COLLIDER_RADIUS;
@@ -20,16 +22,83 @@ const COLLISION_MAX_OBSTACLE_SPAN = 28;
 const ENABLE_MODEL_COLLISIONS = true;
 const LOOK_MAX_DELTA_PER_EVENT = 35;
 const PLAYER_SPEED_MULTIPLY = 0.5;
-const PLAYER_LOOK_MULTIPLY = 0.3;
+const PLAYER_LOOK_MULTIPLY = 0.5;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
 const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
 
+const toNormalizedDirectionVector = (direction) => {
+  const vector = new THREE.Vector3(
+    Number(direction?.x || 0),
+    Number(direction?.y || 0),
+    Number(direction?.z || -1),
+  );
+
+  if (vector.lengthSq() < 1e-6) {
+    return new THREE.Vector3(0, 0, -1);
+  }
+
+  return vector.normalize();
+};
+
+const toDirectionFromRotation = (rotation) => {
+  const euler = new THREE.Euler(
+    Number(rotation?.x || 0),
+    Number(rotation?.y || 0),
+    Number(rotation?.z || 0),
+    "YXZ",
+  );
+
+  return new THREE.Vector3(0, 0, -1).applyEuler(euler).normalize();
+};
+
+const DEFAULT_POINTERLOCK_CAROUSEL_ITEMS = [
+  {
+    title: "1",
+    position: { x: 40, y: PLAYER_GROUND_Y, z: -25 },
+    rotation: { x: -0.087, y: 2.094, z: 0 },
+  },
+  {
+    title: "2",
+    position: { x: -5.986, y: 10, z: 22.844 },
+    rotation: { x: -0.161, y: -0.679, z: 0 },
+  },
+  {
+    title: "3",
+    position: { x: -13.657, y: 10, z: 20.92 },
+    rotation: { x: -0.291, y: 1.067, z: 0 },
+  },
+  {
+    title: "4",
+    position: { x: 42.069, y: 10, z: 15.819 },
+    rotation: { x: -0.501, y: 0.951, z: 0 },
+  },
+];
+
+const INITIAL_POINTERLOCK_ITEM = DEFAULT_POINTERLOCK_CAROUSEL_ITEMS[0] ?? {};
+const INITIAL_POINTERLOCK_POSITION = new THREE.Vector3(
+  Number(INITIAL_POINTERLOCK_ITEM.position?.x || 0),
+  Number(INITIAL_POINTERLOCK_ITEM.position?.y || PLAYER_GROUND_Y),
+  Number(INITIAL_POINTERLOCK_ITEM.position?.z || 0),
+);
+const INITIAL_POINTERLOCK_ROTATION = {
+  x: Number(INITIAL_POINTERLOCK_ITEM.rotation?.x || 0),
+  y: Number(INITIAL_POINTERLOCK_ITEM.rotation?.y || 0),
+  z: Number(INITIAL_POINTERLOCK_ITEM.rotation?.z || 0),
+};
+
 function Controls_PointerLock() {
   const containerRef = useRef(null);
   const overwriteMaterialControllerRef = useRef(null);
-  const [currentPose, setCurrentPose] = useState(null);
+  const rendererRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const handleActiveSlideChangeRef = useRef(() => {});
   const [overwriteEnabled, setOverwriteEnabled] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  const [modelLoadError, setModelLoadError] = useState(false);
+  const [loadedBytes, setLoadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
   const overwriteEnabledRef = useRef(false);
   const {
     isVisible: menuVisible,
@@ -38,6 +107,10 @@ function Controls_PointerLock() {
     requestResume,
     requestClose,
   } = useMenuPauseController({ initialVisible: true });
+
+  const handleActiveSlideChange = useCallback(({ slide }) => {
+    handleActiveSlideChangeRef.current({ slide });
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,6 +141,7 @@ function Controls_PointerLock() {
     let controls;
     let raycaster;
     let loadedModel = null;
+    let isDisposed = false;
 
     const objects = [];
     const obstacleBoxes = [];
@@ -78,7 +152,6 @@ function Controls_PointerLock() {
     let moveRight = false;
 
     let prevTime = performance.now();
-    let lastPoseSnapshotTime = 0;
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
     const vertex = new THREE.Vector3();
@@ -106,7 +179,7 @@ function Controls_PointerLock() {
     const disposableMaterials = [];
     const disposableGeometries = [];
     const gltfLoader = new GLTFLoader();
-    const sampleGlbUrl = NOISELESS_GLB_URL;
+    const sampleGlbCandidates = [NOISELESS_GLB_URL];
     const targetModelHeight = 42;
     const tapRaycaster = new THREE.Raycaster();
     const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -130,11 +203,54 @@ function Controls_PointerLock() {
       maxPitch: Math.PI / 2 - 0.05,
     };
     const lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
-    const lookDirectionVector = new THREE.Vector3();
+    const lookRotationMatrix = new THREE.Matrix4();
     let lastTapTime = 0;
     let lastTapX = 0;
     let lastTapY = 0;
     const lookSensitivity = touchLook.sensitivity * playerLookMultiply;
+    const smoothSlidePose = {
+      active: false,
+      startTime: 0,
+      duration: 620,
+      startPosition: new THREE.Vector3(),
+      endPosition: new THREE.Vector3(),
+      startQuaternion: new THREE.Quaternion(),
+      endQuaternion: new THREE.Quaternion(),
+    };
+
+    handleActiveSlideChangeRef.current = ({ slide }) => {
+      if (!slide?.position || (!slide?.rotation && !slide?.direction)) {
+        return;
+      }
+
+      const directionVector = slide.rotation
+        ? toDirectionFromRotation(slide.rotation)
+        : toNormalizedDirectionVector(slide.direction);
+      const nextPosition = new THREE.Vector3(
+        Number(slide.position.x || 0),
+        Number(slide.position.y || PLAYER_GROUND_Y),
+        Number(slide.position.z || 0),
+      );
+
+      lookRotationMatrix.lookAt(
+        new THREE.Vector3(0, 0, 0),
+        directionVector,
+        new THREE.Vector3(0, 1, 0),
+      );
+
+      const nextQuaternion = new THREE.Quaternion().setFromRotationMatrix(
+        lookRotationMatrix,
+      );
+
+      velocity.set(0, 0, 0);
+      mobileTeleport.active = false;
+      smoothSlidePose.startPosition.copy(controls.object.position);
+      smoothSlidePose.endPosition.copy(nextPosition);
+      smoothSlidePose.startQuaternion.copy(camera.quaternion);
+      smoothSlidePose.endQuaternion.copy(nextQuaternion);
+      smoothSlidePose.startTime = performance.now();
+      smoothSlidePose.active = true;
+    };
 
     const applyLookDelta = (deltaX, deltaY) => {
       lookEuler.setFromQuaternion(camera.quaternion);
@@ -239,9 +355,9 @@ function Controls_PointerLock() {
       }
 
       const spawnColliderCenter = new THREE.Vector3(
-        PLAYER_SPAWN.x,
-        PLAYER_SPAWN.y - PLAYER_COLLIDER_CENTER_Y_OFFSET,
-        PLAYER_SPAWN.z,
+        INITIAL_POINTERLOCK_POSITION.x,
+        INITIAL_POINTERLOCK_POSITION.y - PLAYER_COLLIDER_CENTER_Y_OFFSET,
+        INITIAL_POINTERLOCK_POSITION.z,
       );
       const closestToSpawn = box.clampPoint(
         spawnColliderCenter,
@@ -349,9 +465,11 @@ function Controls_PointerLock() {
       1,
       1000,
     );
-    camera.position.copy(PLAYER_SPAWN);
+    cameraRef.current = camera;
+    camera.position.copy(INITIAL_POINTERLOCK_POSITION);
 
     scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color(0xffffff);
     scene.fog = new THREE.Fog(0xffffff, 0, 750);
     const overwriteMaterialController = createOverwriteMaterialController();
@@ -378,10 +496,15 @@ function Controls_PointerLock() {
     controls.addEventListener("unlock", onUnlock);
 
     scene.add(controls.object);
-    controls.object.position.copy(PLAYER_SPAWN);
+    controls.object.position.copy(INITIAL_POINTERLOCK_POSITION);
     camera.rotation.order = "YXZ";
     controls.object.rotation.order = "YXZ";
-    lookEuler.set(PLAYER_INITIAL_PITCH, PLAYER_INITIAL_YAW, 0, "YXZ");
+    lookEuler.set(
+      INITIAL_POINTERLOCK_ROTATION.x,
+      INITIAL_POINTERLOCK_ROTATION.y,
+      INITIAL_POINTERLOCK_ROTATION.z,
+      "YXZ",
+    );
     camera.quaternion.setFromEuler(lookEuler);
 
     const onKeyDown = (event) => {
@@ -530,15 +653,35 @@ function Controls_PointerLock() {
       }
     }
 
-    const loadWalkableModel = (retryAttempt = 0) => {
+    const loadWalkableModel = (candidateIndex = 0, retryAttempt = 0) => {
+      if (candidateIndex >= sampleGlbCandidates.length) {
+        if (!isDisposed) {
+          setIsModelLoading(false);
+          setModelLoadError(true);
+        }
+        return;
+      }
+
+      if (!isDisposed) {
+        setIsModelLoading(true);
+        setModelLoadError(false);
+        setLoadedBytes(0);
+        setTotalBytes(0);
+      }
+
+      const baseGlbUrl = sampleGlbCandidates[candidateIndex];
       const requestUrl =
         retryAttempt > 0
-          ? `${sampleGlbUrl}${sampleGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
-          : sampleGlbUrl;
+          ? `${baseGlbUrl}${baseGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
+          : baseGlbUrl;
 
       gltfLoader.load(
         requestUrl,
         (gltf) => {
+          if (isDisposed) {
+            return;
+          }
+
           const model = gltf.scene;
           loadedModel = model;
 
@@ -580,9 +723,25 @@ function Controls_PointerLock() {
               }
             });
           }
+
+          setIsModelLoading(false);
+          setModelLoadError(false);
         },
-        undefined,
+        (event) => {
+          if (isDisposed) {
+            return;
+          }
+
+          const nextLoaded = Number(event?.loaded || 0);
+          const nextTotal = Number(event?.total || 0);
+          setLoadedBytes(nextLoaded);
+          setTotalBytes(nextTotal > 0 ? nextTotal : 0);
+        },
         (error) => {
+          if (isDisposed) {
+            return;
+          }
+
           const statusCode = Number(error?.target?.status || 0);
           const isGatewayError = statusCode === 502;
           const canRetry = retryAttempt < GLB_MAX_RETRIES;
@@ -590,38 +749,34 @@ function Controls_PointerLock() {
           if (isGatewayError && canRetry) {
             const nextAttempt = retryAttempt + 1;
             window.setTimeout(() => {
-              loadWalkableModel(nextAttempt);
+              loadWalkableModel(candidateIndex, nextAttempt);
             }, GLB_RETRY_DELAY_MS * nextAttempt);
+
             return;
           }
+
+          if (candidateIndex < sampleGlbCandidates.length - 1) {
+            loadWalkableModel(candidateIndex + 1);
+            return;
+          }
+
+          setIsModelLoading(false);
+          setModelLoadError(true);
         },
       );
     };
 
     loadWalkableModel();
 
-    renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice });
+    renderer = new THREE.WebGLRenderer({
+      antialias: !isTouchDevice,
+      preserveDrawingBuffer: true,
+    });
+    rendererRef.current = renderer;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setAnimationLoop(() => {
       const time = performance.now();
-
-      if (time - lastPoseSnapshotTime >= 120) {
-        camera.getWorldDirection(lookDirectionVector);
-        setCurrentPose({
-          position: {
-            x: controls.object.position.x,
-            y: controls.object.position.y,
-            z: controls.object.position.z,
-          },
-          lookDirection: {
-            x: lookDirectionVector.x,
-            y: lookDirectionVector.y,
-            z: lookDirectionVector.z,
-          },
-        });
-        lastPoseSnapshotTime = time;
-      }
 
       if (mobileTeleport.active) {
         const t = Math.min(
@@ -649,6 +804,30 @@ function Controls_PointerLock() {
           if (t >= 1) {
             mobileTeleport.active = false;
           }
+        }
+      }
+
+      if (smoothSlidePose.active) {
+        const t = Math.min(
+          (time - smoothSlidePose.startTime) / smoothSlidePose.duration,
+          1,
+        );
+        const eased = t * (2 - t);
+
+        controls.object.position.lerpVectors(
+          smoothSlidePose.startPosition,
+          smoothSlidePose.endPosition,
+          eased,
+        );
+        camera.quaternion.slerpQuaternions(
+          smoothSlidePose.startQuaternion,
+          smoothSlidePose.endQuaternion,
+          eased,
+        );
+        lookEuler.setFromQuaternion(camera.quaternion);
+
+        if (t >= 1) {
+          smoothSlidePose.active = false;
         }
       }
 
@@ -742,6 +921,7 @@ function Controls_PointerLock() {
     window.addEventListener("resize", onWindowResize);
 
     return () => {
+      isDisposed = true;
       window.removeEventListener("resize", onWindowResize);
       container.removeEventListener("pointerdown", onPointerDown);
       container.removeEventListener("pointermove", onPointerMove);
@@ -762,6 +942,10 @@ function Controls_PointerLock() {
 
       overwriteMaterialController.dispose();
       overwriteMaterialControllerRef.current = null;
+      handleActiveSlideChangeRef.current = () => {};
+      sceneRef.current = null;
+      cameraRef.current = null;
+      rendererRef.current = null;
 
       disposableGeometries.forEach((geometry) => geometry.dispose());
       disposableMaterials.forEach((material) => material.dispose());
@@ -772,6 +956,18 @@ function Controls_PointerLock() {
       }
     };
   }, []);
+
+  const handleRequestScreenshot = createScreenshotRequestHandler({
+    rendererRef,
+    sceneRef,
+    cameraRef,
+  });
+
+  const handleToggleOverwrite = createOverwriteToggleHandler({
+    overwriteEnabledRef,
+    setOverwriteEnabled,
+    overwriteMaterialControllerRef,
+  });
 
   return React.createElement(
     "div",
@@ -785,18 +981,20 @@ function Controls_PointerLock() {
         touchAction: "none",
       },
     },
+    React.createElement(LoaderViewer, {
+      visible: isModelLoading || modelLoadError,
+      loadedBytes,
+      totalBytes,
+      hasError: modelLoadError,
+    }),
     React.createElement(MenuModal, {
       visible: menuVisible,
-      currentPose,
+      carouselPositions: DEFAULT_POINTERLOCK_CAROUSEL_ITEMS,
       onClose: requestClose,
-      showOverwriteToggle: true,
       overwriteEnabled,
-      onToggleOverwrite: () => {
-        const nextValue = !overwriteEnabledRef.current;
-        overwriteEnabledRef.current = nextValue;
-        setOverwriteEnabled(nextValue);
-        overwriteMaterialControllerRef.current?.setEnabled(nextValue);
-      },
+      onActiveSlideChange: handleActiveSlideChange,
+      onRequestScreenshot: handleRequestScreenshot,
+      onToggleOverwrite: handleToggleOverwrite,
     }),
   );
 }

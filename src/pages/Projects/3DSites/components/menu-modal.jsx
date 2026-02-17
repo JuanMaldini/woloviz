@@ -1,23 +1,132 @@
+import * as THREE from "three";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CurrentViewPositionPanel from "./CurrentViewPositionPanel";
+
+const toRoundedValue = (value) => Number(Number(value || 0).toFixed(3));
+
+const toNormalizedPosition = (position) => ({
+  x: toRoundedValue(position?.x),
+  y: toRoundedValue(position?.y),
+  z: toRoundedValue(position?.z),
+});
+
+const toNormalizedDirection = (direction) => {
+  const vector = new THREE.Vector3(
+    Number(direction?.x || 0),
+    Number(direction?.y || 0),
+    Number(direction?.z || -1),
+  );
+
+  if (vector.lengthSq() < 1e-6) {
+    return { x: 0, y: 0, z: -1 };
+  }
+
+  vector.normalize();
+  return {
+    x: toRoundedValue(vector.x),
+    y: toRoundedValue(vector.y),
+    z: toRoundedValue(vector.z),
+  };
+};
+
+const toNormalizedRotation = (rotation) => ({
+  x: toRoundedValue(rotation?.x),
+  y: toRoundedValue(rotation?.y),
+  z: toRoundedValue(rotation?.z),
+});
+
+const toNormalizedDistance = (distance) => {
+  const value = Number(distance);
+  if (!Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return toRoundedValue(Math.max(0, value));
+};
+
+const toDirectionFromRotation = (rotation) => {
+  const euler = new THREE.Euler(
+    Number(rotation?.x || 0),
+    Number(rotation?.y || 0),
+    Number(rotation?.z || 0),
+    "YXZ",
+  );
+  const direction = new THREE.Vector3(0, 0, -1).applyEuler(euler).normalize();
+
+  return {
+    x: toRoundedValue(direction.x),
+    y: toRoundedValue(direction.y),
+    z: toRoundedValue(direction.z),
+  };
+};
+
+const toRotationFromDirection = (direction) => {
+  const normalizedDirection = toNormalizedDirection(direction);
+  const lookMatrix = new THREE.Matrix4().lookAt(
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(
+      normalizedDirection.x,
+      normalizedDirection.y,
+      normalizedDirection.z,
+    ),
+    new THREE.Vector3(0, 1, 0),
+  );
+  const euler = new THREE.Euler().setFromRotationMatrix(lookMatrix, "YXZ");
+
+  return {
+    x: toRoundedValue(euler.x),
+    y: toRoundedValue(euler.y),
+    z: toRoundedValue(euler.z),
+  };
+};
+
+const normalizeCarouselSlide = (slide, index) => {
+  const title =
+    typeof slide?.title === "string" ? slide.title : `Slide ${index + 1}`;
+  const position = toNormalizedPosition(slide?.position);
+  const rotation = slide?.rotation
+    ? toNormalizedRotation(slide.rotation)
+    : toRotationFromDirection(slide?.direction);
+  const direction = toDirectionFromRotation(rotation);
+  const distance = toNormalizedDistance(slide?.distance);
+
+  return {
+    title,
+    position,
+    rotation,
+    direction,
+    distance,
+    id:
+      slide?.id ??
+      JSON.stringify({
+        title,
+        position,
+        rotation,
+        distance,
+      }),
+  };
+};
+
+const normalizeCarouselSlides = (slides) =>
+  slides.map((slide, index) => normalizeCarouselSlide(slide, index));
 
 const PREVIEW_SLIDES = [
   {
     title: "Fachada contemporánea",
-    imageUrl:
-      "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1600&q=80",
+    position: { x: 40, y: 20, z: 65 },
+    rotation: { x: -0.243, y: 0.565, z: 0 },
   },
   {
     title: "Minimalist interior",
-    imageUrl:
-      "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1300&q=80",
+    position: { x: 75, y: 16, z: 20 },
+    rotation: { x: -0.181, y: 1.196, z: 0 },
   },
   {
     title: "Project lobby",
-    imageUrl:
-      "https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1400&q=80",
+    position: { x: -20, y: 14, z: 70 },
+    rotation: { x: -0.151, y: -0.277, z: 0 },
   },
-].map((slide) => ({ ...slide, id: `${slide.title}-${slide.imageUrl}` }));
+];
 
 export const useMenuPauseController = ({ initialVisible = true } = {}) => {
   const [isVisible, setIsVisible] = useState(initialVisible);
@@ -58,9 +167,10 @@ export const useMenuPauseController = ({ initialVisible = true } = {}) => {
 const MenuModal = ({
   visible = true,
   onClose,
-  currentPose,
-  showOverwriteToggle = false,
+  carouselPositions = PREVIEW_SLIDES,
   overwriteEnabled = false,
+  onRequestScreenshot,
+  onActiveSlideChange,
   onToggleOverwrite,
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -68,11 +178,34 @@ const MenuModal = ({
 
   const isControlled = typeof visible === "boolean";
   const isVisible = isControlled ? visible : isVisibleInternal;
+  const rawSlides =
+    Array.isArray(carouselPositions) && carouselPositions.length
+      ? carouselPositions
+      : PREVIEW_SLIDES;
+  const slides = useMemo(() => normalizeCarouselSlides(rawSlides), [rawSlides]);
 
   const activeSlide = useMemo(
-    () => PREVIEW_SLIDES[activeIndex] ?? PREVIEW_SLIDES[0],
-    [activeIndex],
+    () => slides[activeIndex] ?? slides[0],
+    [activeIndex, slides],
   );
+  const onActiveSlideChangeRef = useRef(onActiveSlideChange);
+
+  useEffect(() => {
+    onActiveSlideChangeRef.current = onActiveSlideChange;
+  }, [onActiveSlideChange]);
+
+  useEffect(() => {
+    if (!slides.length) {
+      return;
+    }
+
+    setActiveIndex((current) => {
+      if (current >= slides.length) {
+        return slides.length - 1;
+      }
+      return current;
+    });
+  }, [slides]);
 
   const handleClose = (event) => {
     if (event?.preventDefault) {
@@ -91,16 +224,43 @@ const MenuModal = ({
   };
 
   const showPrevious = () => {
+    if (!slides.length) {
+      return;
+    }
+
     setActiveIndex((current) =>
-      current === 0 ? PREVIEW_SLIDES.length - 1 : current - 1,
+      current === 0 ? slides.length - 1 : current - 1,
     );
   };
 
   const showNext = () => {
+    if (!slides.length) {
+      return;
+    }
+
     setActiveIndex((current) =>
-      current === PREVIEW_SLIDES.length - 1 ? 0 : current + 1,
+      current === slides.length - 1 ? 0 : current + 1,
     );
   };
+
+  const handleRequestScreenshot = () => {
+    if (!onRequestScreenshot) {
+      return;
+    }
+
+    onRequestScreenshot();
+  };
+
+  useEffect(() => {
+    if (!activeSlide || typeof onActiveSlideChangeRef.current !== "function") {
+      return;
+    }
+
+    onActiveSlideChangeRef.current({
+      slide: activeSlide,
+      index: activeIndex,
+    });
+  }, [activeIndex, activeSlide]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -134,66 +294,53 @@ const MenuModal = ({
 
   return (
     <div
-      className="absolute inset-0 z-50 flex h-full w-full items-center justify-center px-0 py-3"
+      className="absolute inset-0 z-50 flex h-full w-full items-center justify-center bg-transparent px-0 py-3 backdrop-blur-none"
       onClick={handleClose}
     >
       <div
-        className="w-auto max-w-full text-black"
+        className="inline-flex w-[92vw] max-w-[1200px] flex-col items-center text-black shadow-sm sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[52vw]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="inline-block bg-slate-200 shadow-sm">
-          <div className="">
-            <div className="flex items-center justify-center">
-              <div className="inline-flex w-fit max-w-[100vw] flex-col items-center">
-                <div className="relative inline-block max-w-full">
-                  <img
-                    src={activeSlide.imageUrl}
-                    className="block max-h-[46vh] max-w-[100vw] h-auto w-auto"
-                    loading="lazy"
-                  />
+        <div className="relative aspect-video w-full">
+          <div className="pointer-events-none absolute inset-0 border-x-2 border-t-2 border-white" />
 
-                  <button
-                    type="button"
-                    onClick={showPrevious}
-                    className="absolute inset-y-0 left-0 flex w-1/2 items-center justify-start bg-transparent px-4 text-3xl text-white/70 transition-colors hover:bg-black/10 hover:text-white"
-                    aria-label="Previous preview"
-                  >
-                    ‹
-                  </button>
+          <button
+            type="button"
+            onClick={showPrevious}
+            className="absolute inset-y-0 left-0 flex w-1/2 items-center justify-start bg-transparent px-4 text-3xl text-black/40 transition-colors hover:bg-black/10 hover:text-black/70"
+            aria-label="Previous preview"
+          >
+            ‹
+          </button>
 
-                  <button
-                    type="button"
-                    onClick={showNext}
-                    className="absolute inset-y-0 right-0 flex w-1/2 items-center justify-end bg-transparent px-4 text-3xl text-white/70 transition-colors hover:bg-black/10 hover:text-white"
-                    aria-label="Next preview"
-                  >
-                    ›
-                  </button>
-                </div>
+          <button
+            type="button"
+            onClick={showNext}
+            className="absolute inset-y-0 right-0 flex w-1/2 items-center justify-end bg-transparent px-4 text-3xl text-black/40 transition-colors hover:bg-black/10 hover:text-black/70"
+            aria-label="Next preview"
+          >
+            ›
+          </button>
+        </div>
 
-                <p className="mt-3 text-sm font-medium text-black/80">
-                  {activeSlide.title}
-                </p>
-              </div>
-            </div>
+        <div className="w-full bg-white px-3 py-2 text-center text-xs text-black/85 sm:px-4 sm:text-sm">
+          <p className="break-words">{activeSlide.title}</p>
+        </div>
 
-            <div className="mt-4 w-full border-t border-black/10 bg-white/70 px-4 py-3 text-sm leading-6 text-black/85">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold tracking-wide">
-                  Unit A-1204 · 3 rooms
-                </p>
-                <CurrentViewPositionPanel
-                  currentPose={currentPose}
-                  showOverwriteToggle={showOverwriteToggle}
-                  overwriteEnabled={overwriteEnabled}
-                  onToggleOverwrite={onToggleOverwrite}
-                />
-              </div>
-              <p>68 m²· 2 rooms · 1 bathroom</p>
-              <p>Living · Kitchen with bar</p>
-              <p>Estimated delivery: Q4 2026 · Northeast orientation</p>
-            </div>
+        <div className="w-full border-t border-black/10 bg-white px-3 py-3 text-xs leading-5 text-black/85 sm:px-4 sm:text-sm sm:leading-6">
+          <div className="flex items-start justify-between gap-2 sm:items-center">
+            <p className="max-w-[60%] break-words font-semibold tracking-wide sm:max-w-none">
+              Unit A-1204 · 3 rooms
+            </p>
+            <CurrentViewPositionPanel
+              overwriteEnabled={overwriteEnabled}
+              onRequestScreenshot={handleRequestScreenshot}
+              onToggleOverwrite={onToggleOverwrite}
+            />
           </div>
+          <p>68 m²· 2 rooms · 1 bathroom</p>
+          <p>Living · Kitchen with bar</p>
+          <p>Estimated delivery: Q4 2026 · Northeast orientation</p>
         </div>
       </div>
     </div>
