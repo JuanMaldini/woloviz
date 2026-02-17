@@ -3,15 +3,10 @@ import { BsCircle, BsCircleFill } from "react-icons/bs";
 
 const createOverwriteSceneMaterial = () =>
   new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.08,
-    roughness: 1,
+    color: 0xcfcfcf,
+    roughness: 0.55,
     metalness: 0,
-    envMapIntensity: 0,
-    wireframe: true,
-    wireframeLinewidth: 1,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
   });
 
 export const createOverwriteMaterialController = () => {
