@@ -65,8 +65,8 @@ const toDirectionFromRotation = (rotation) => {
 const DEFAULT_ORBIT_CAROUSEL_ITEMS = [
   {
     title: "1",
-    position: { x: 12.007, y: 100.857, z: 31.516 },
-    rotation: { x: -1.265, y: 0.419, z: 0 },
+    position: { x: 13.788, y: 101.014, z: 35.13 },
+    rotation: { x: -1.292, y: 0.419, z: 0 },
     distance: 20,
   },
   {
@@ -108,6 +108,7 @@ function Controls_Orbit() {
   const rendererRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
+  const orbitControlsRef = useRef(null);
   const handleActiveSlideChangeRef = useRef(() => {});
   const [overwriteEnabled, setOverwriteEnabled] = useState(true);
   const [isModelLoading, setIsModelLoading] = useState(true);
@@ -176,6 +177,7 @@ function Controls_Orbit() {
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    orbitControlsRef.current = controls;
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
@@ -780,6 +782,7 @@ function Controls_Orbit() {
       overwriteMaterialController.dispose();
       overwriteMaterialControllerRef.current = null;
       handleActiveSlideChangeRef.current = () => {};
+      orbitControlsRef.current = null;
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
@@ -829,6 +832,10 @@ function Controls_Orbit() {
     React.createElement(MenuModal, {
       visible: menuVisible,
       carouselPositions: DEFAULT_ORBIT_CAROUSEL_ITEMS,
+      showCopyButton: true,
+      copyMode: "orbit",
+      cameraRef,
+      orbitControlsRef,
       onClose: requestClose,
       overwriteEnabled,
       onActiveSlideChange: handleActiveSlideChange,

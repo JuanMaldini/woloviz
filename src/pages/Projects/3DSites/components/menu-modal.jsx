@@ -197,7 +197,7 @@ export const FloatingMenuToggle = ({
       type="button"
       onClick={onToggle}
       aria-label={ariaLabel || (isOpen ? "Close menu" : "Open menu")}
-      className="absolute right-3 top-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded border border-white/80 bg-white/90 text-slate-900 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:h-10 sm:w-10"
+      className="absolute bottom-3 right-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded border border-white/80 bg-white/90 text-slate-900 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:h-10 sm:w-10"
     >
       <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
     </button>
@@ -208,6 +208,12 @@ const MenuModal = ({
   visible = true,
   onClose,
   carouselPositions = PREVIEW_SLIDES,
+  showCopyButton = true,
+  copyMode,
+  cameraRef,
+  orbitControlsRef,
+  pointerLockControlsRef,
+  currentPlayerSlide,
   overwriteEnabled = false,
   onRequestScreenshot,
   onActiveSlideChange,
@@ -215,6 +221,9 @@ const MenuModal = ({
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isVisibleInternal, setIsVisibleInternal] = useState(true);
+  const [isPanelMounted, setIsPanelMounted] = useState(Boolean(visible));
+  const [isPanelOpen, setIsPanelOpen] = useState(Boolean(visible));
+  const closeAnimationTimeoutRef = useRef(null);
 
   const isControlled = typeof visible === "boolean";
   const isVisible = isControlled ? visible : isVisibleInternal;
@@ -246,6 +255,34 @@ const MenuModal = ({
       return current;
     });
   }, [slides]);
+
+  useEffect(() => {
+    if (closeAnimationTimeoutRef.current) {
+      window.clearTimeout(closeAnimationTimeoutRef.current);
+      closeAnimationTimeoutRef.current = null;
+    }
+
+    if (isVisible) {
+      setIsPanelMounted(true);
+      requestAnimationFrame(() => {
+        setIsPanelOpen(true);
+      });
+      return;
+    }
+
+    setIsPanelOpen(false);
+    closeAnimationTimeoutRef.current = window.setTimeout(() => {
+      setIsPanelMounted(false);
+    }, 220);
+  }, [isVisible]);
+
+  useEffect(() => {
+    return () => {
+      if (closeAnimationTimeoutRef.current) {
+        window.clearTimeout(closeAnimationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleClose = (event) => {
     if (event?.preventDefault) {
@@ -328,51 +365,62 @@ const MenuModal = ({
     };
   }, [isVisible]);
 
-  if (!isVisible) {
+  if (!isPanelMounted) {
     return null;
   }
 
   return (
     <div
-      className="absolute inset-0 z-50 flex h-full w-full items-center justify-center bg-transparent px-0 py-3 backdrop-blur-none"
+      className={`absolute inset-0 z-50 flex h-full w-full items-end justify-center  px-2 pb-2 pt-10 transition-opacity duration-200 sm:px-3 sm:pb-3 ${
+        isPanelOpen ? "" : "pointer-events-none"
+            }`}
       onClick={handleClose}
     >
       <div
-        className="inline-flex w-[92vw] max-w-[1200px] flex-col items-center text-black shadow-sm sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[52vw]"
+        className={`inline-flex w-full max-w-md flex-col overflow-hidden rounded-xl bg-white text-black shadow-lg transition-all duration-200 ${
+          isPanelOpen ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative aspect-video w-full">
-          <div className="pointer-events-none absolute inset-0 border-x-2 border-t-2 border-white" />
-
+        <div className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center bg-white/95 px-2 py-2 sm:grid-cols-[3rem_minmax(0,1fr)_3rem] sm:px-3">
           <button
             type="button"
             onClick={showPrevious}
-            className="absolute inset-y-0 left-0 flex w-1/2 items-center justify-start bg-transparent px-4 text-3xl text-black/40 transition-colors hover:bg-black/10 hover:text-black/70"
+            className="inline-flex h-9 w-[4.5rem] items-center justify-center rounded-md border border-black/15 bg-white text-2xl text-black/55 transition-colors hover:bg-black/[0.04] hover:text-black/75 disabled:pointer-events-none disabled:opacity-30 sm:h-10 sm:w-20"
             aria-label="Previous preview"
+            disabled={slides.length <= 1}
           >
             ‹
           </button>
 
+          <p className="px-2 text-center text-sm font-semibold leading-5 text-black/85 sm:text-base">
+            <span className="block truncate">{activeSlide.title}</span>
+          </p>
+
           <button
             type="button"
             onClick={showNext}
-            className="absolute inset-y-0 right-0 flex w-1/2 items-center justify-end bg-transparent px-4 text-3xl text-black/40 transition-colors hover:bg-black/10 hover:text-black/70"
+            className="inline-flex h-9 w-[4.5rem] items-center justify-center justify-self-end rounded-md border border-black/15 bg-white text-2xl text-black/55 transition-colors hover:bg-black/[0.04] hover:text-black/75 disabled:pointer-events-none disabled:opacity-30 sm:h-10 sm:w-20"
             aria-label="Next preview"
+            disabled={slides.length <= 1}
           >
             ›
           </button>
         </div>
 
-        <div className="w-full bg-white px-3 py-2 text-center text-xs text-black/85 sm:px-4 sm:text-sm">
-          <p className="break-words">{activeSlide.title}</p>
-        </div>
-
-        <div className="w-full border-t border-black/10 bg-white px-3 py-3 text-xs leading-5 text-black/85 sm:px-4 sm:text-sm sm:leading-6">
-          <div className="flex items-start justify-between gap-2 sm:items-center">
-            <p className="max-w-[60%] break-words font-semibold tracking-wide sm:max-w-none">
+        <div className="w-full bg-white px-3 pb-3 pt-2 text-xs leading-5 text-black/85 sm:px-4 sm:pb-4 sm:text-sm sm:leading-6">
+          <div className="flex items-start justify-between gap-3 sm:items-center">
+            <p className="min-w-0 flex-1 break-words font-semibold tracking-wide">
               Unit A-1204 · 3 rooms
             </p>
             <CurrentViewPositionPanel
+              showCopyButton={showCopyButton}
+              copyMode={copyMode}
+              cameraRef={cameraRef}
+              orbitControlsRef={orbitControlsRef}
+              pointerLockControlsRef={pointerLockControlsRef}
+              activeSlideTitle={activeSlide?.title}
+              currentPlayerSlide={currentPlayerSlide}
               overwriteEnabled={overwriteEnabled}
               onRequestScreenshot={handleRequestScreenshot}
               onToggleOverwrite={onToggleOverwrite}

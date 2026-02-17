@@ -12,3 +12,7 @@ package-lock.json
 /test/test_suite.js*
 .idea
 .env
+/.agent
+/skills
+/.claude
+/.agents

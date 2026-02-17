@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { copyCurrentSlideToClipboard } from "./functions/copyCurrentView";
+import {
+  copyCurrentSlideToClipboard,
+  resolveCurrentPoseByMode,
+} from "./functions/copyCurrentView";
 
 const CopyCurrentViewButton = ({
-  currentPose,
-  activeSlide,
+  activeSlideTitle,
+  copyMode,
+  cameraRef,
+  orbitControlsRef,
+  pointerLockControlsRef,
   currentPlayerSlide,
   disabled = false,
 }) => {
@@ -15,10 +21,17 @@ const CopyCurrentViewButton = ({
     }
 
     try {
+      const resolvedCurrentPose = resolveCurrentPoseByMode({
+        mode: copyMode,
+        cameraRef,
+        orbitControlsRef,
+        pointerLockControlsRef,
+      });
+
       const success = await copyCurrentSlideToClipboard({
-        currentPose,
+        currentPose: resolvedCurrentPose,
         currentPlayerSlide,
-        activeSlideTitle: activeSlide?.title,
+        activeSlideTitle,
       });
 
       if (!success) {

@@ -1548,21 +1548,21 @@ const Playground = () => {
 
       <aside className="w-[340px] overflow-hidden transition-all duration-300 ease-in-out max-md:h-auto max-md:max-h-[45vh] max-md:w-full">
         <div className="relative flex h-full w-full flex-col overflow-hidden bg-slate-100 text-slate-900 max-[600px]:text-[0.78rem]">
-          <div className="flex items-baseline justify-between gap-2 border-b border-black/10 bg-slate-200 px-4 py-3 text-[0.95rem] max-[900px]:px-3 max-[900px]:py-2">
+          <div className="flex items-baseline gap-2 border-b border-black/10 bg-slate-200 px-4 py-3 text-[0.95rem] max-[900px]:px-3 max-[900px]:py-2">
             <div className="flex items-center gap-2">
               <strong className="text-sm font-bold tracking-wide text-slate-700">
                 Build your tour
               </strong>
-              <button
-                type="button"
-                onClick={() => setIsTourInfoModalOpen(true)}
-                aria-label="Open tour information"
-                className="text-slate-600 transition-colors hover:text-slate-900"
-              >
-                <IoInformationCircleOutline className="text-lg" />
-              </button>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsTourInfoModalOpen(true)}
+            aria-label="Open tour information"
+            className="absolute bottom-3 right-3 z-10 text-slate-600 transition-colors hover:text-slate-900"
+          >
+            <IoInformationCircleOutline className="text-lg" />
+          </button>
           <Form
             initialData={data}
             initialFloorplanPositions={floorplanScenePositions}

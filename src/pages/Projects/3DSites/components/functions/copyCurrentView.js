@@ -1,4 +1,5 @@
 import { createCurrentPlayerSlide } from "./pose";
+import * as THREE from "three";
 
 const toFixedNumber = (value, decimals = 3) => {
   const numeric = Number(value);
@@ -85,4 +86,81 @@ export const copyCurrentSlideToClipboard = async ({
 
   await navigator.clipboard.writeText(payload);
   return true;
+};
+
+export const resolveOrbitCurrentPose = ({ camera, orbitControls }) => {
+  if (!camera || !orbitControls) {
+    return null;
+  }
+
+  const lookDirection = orbitControls.target.clone().sub(camera.position);
+  if (lookDirection.lengthSq() < 1e-6) {
+    camera.getWorldDirection(lookDirection);
+  } else {
+    lookDirection.normalize();
+  }
+
+  return {
+    position: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    },
+    lookDirection: {
+      x: lookDirection.x,
+      y: lookDirection.y,
+      z: lookDirection.z,
+    },
+    distance: camera.position.distanceTo(orbitControls.target),
+  };
+};
+
+export const resolvePointerLockCurrentPose = ({
+  camera,
+  pointerLockControls,
+}) => {
+  if (!camera || !pointerLockControls) {
+    return null;
+  }
+
+  const lookDirection = new THREE.Vector3();
+  camera.getWorldDirection(lookDirection);
+
+  return {
+    position: {
+      x: pointerLockControls.object.position.x,
+      y: pointerLockControls.object.position.y,
+      z: pointerLockControls.object.position.z,
+    },
+    lookDirection: {
+      x: lookDirection.x,
+      y: lookDirection.y,
+      z: lookDirection.z,
+    },
+  };
+};
+
+export const resolveCurrentPoseByMode = ({
+  mode,
+  cameraRef,
+  orbitControlsRef,
+  pointerLockControlsRef,
+}) => {
+  const camera = cameraRef?.current;
+
+  if (mode === "orbit") {
+    return resolveOrbitCurrentPose({
+      camera,
+      orbitControls: orbitControlsRef?.current,
+    });
+  }
+
+  if (mode === "pointer-lock") {
+    return resolvePointerLockCurrentPose({
+      camera,
+      pointerLockControls: pointerLockControlsRef?.current,
+    });
+  }
+
+  return null;
 };

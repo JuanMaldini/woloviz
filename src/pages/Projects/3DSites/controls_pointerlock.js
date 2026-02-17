@@ -57,22 +57,27 @@ const toDirectionFromRotation = (rotation) => {
 
 const DEFAULT_POINTERLOCK_CAROUSEL_ITEMS = [
   {
-    title: "1",
+    title: "living",
     position: { x: 40, y: PLAYER_GROUND_Y, z: -25 },
     rotation: { x: -0.087, y: 2.094, z: 0 },
   },
   {
-    title: "2",
-    position: { x: -5.986, y: 10, z: 22.844 },
-    rotation: { x: -0.161, y: -0.679, z: 0 },
+    title: "dining",
+    position: { x: 3.531, y: 10, z: 6.855 },
+    rotation: { x: -0.159, y: -2.11, z: 0 },
   },
   {
-    title: "3",
+    title: "bedroom",
     position: { x: -13.657, y: 10, z: 20.92 },
     rotation: { x: -0.291, y: 1.067, z: 0 },
   },
   {
-    title: "4",
+    title: "entry",
+    position: { x: -43.989, y: 10, z: -7.416 },
+    rotation: { x: 0.005, y: -1.578, z: 0 },
+  },
+  {
+    title: "space",
     position: { x: 42.069, y: 10, z: 15.819 },
     rotation: { x: -0.501, y: 0.951, z: 0 },
   },
@@ -96,6 +101,7 @@ function Controls_PointerLock() {
   const rendererRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
+  const pointerLockControlsRef = useRef(null);
   const handleActiveSlideChangeRef = useRef(() => {});
   const [overwriteEnabled, setOverwriteEnabled] = useState(true);
   const [isModelLoading, setIsModelLoading] = useState(true);
@@ -506,6 +512,7 @@ function Controls_PointerLock() {
     scene.add(light);
 
     controls = new PointerLockControls(camera, document.body);
+    pointerLockControlsRef.current = controls;
     controls.pointerSpeed = 0;
 
     const onLock = () => {
@@ -967,6 +974,7 @@ function Controls_PointerLock() {
       overwriteMaterialController.dispose();
       overwriteMaterialControllerRef.current = null;
       handleActiveSlideChangeRef.current = () => {};
+      pointerLockControlsRef.current = null;
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
@@ -1020,6 +1028,10 @@ function Controls_PointerLock() {
     React.createElement(MenuModal, {
       visible: menuVisible,
       carouselPositions: DEFAULT_POINTERLOCK_CAROUSEL_ITEMS,
+      showCopyButton: true,
+      copyMode: "pointer-lock",
+      cameraRef,
+      pointerLockControlsRef,
       onClose: requestClose,
       overwriteEnabled,
       onActiveSlideChange: handleActiveSlideChange,
