@@ -238,6 +238,7 @@ function Controls_PointerLock() {
     let lastTapX = 0;
     let lastTapY = 0;
     const lookSensitivity = touchLook.sensitivity * playerLookMultiply;
+    const lookSensitivityTouch = touchLook.sensitivity * playerLookMultiply * 2.5;
     const smoothSlidePose = {
       active: false,
       startTime: 0,
@@ -289,10 +290,10 @@ function Controls_PointerLock() {
       smoothSlidePose.active = true;
     };
 
-    const applyLookDelta = (deltaX, deltaY) => {
+    const applyLookDelta = (deltaX, deltaY, sensitivity = lookSensitivity) => {
       lookEuler.setFromQuaternion(camera.quaternion);
-      lookEuler.y -= deltaX * lookSensitivity;
-      lookEuler.x -= deltaY * lookSensitivity;
+      lookEuler.y -= deltaX * sensitivity;
+      lookEuler.x -= deltaY * sensitivity;
       lookEuler.x = THREE.MathUtils.clamp(
         lookEuler.x,
         -touchLook.maxPitch,
@@ -482,7 +483,7 @@ function Controls_PointerLock() {
       const dy = event.clientY - touchLook.lastY;
       touchLook.lastX = event.clientX;
       touchLook.lastY = event.clientY;
-      applyLookDelta(dx, dy);
+      applyLookDelta(dx, dy, lookSensitivityTouch);
     };
 
     const stopTouchLook = (event) => {
