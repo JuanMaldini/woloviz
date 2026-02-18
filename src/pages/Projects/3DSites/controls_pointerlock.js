@@ -200,7 +200,6 @@ function Controls_PointerLock() {
 
     // Add error handling for critical initialization
     try {
-
       const objects = [];
       const obstacleBoxes = [];
       const showLegacyScene = false;

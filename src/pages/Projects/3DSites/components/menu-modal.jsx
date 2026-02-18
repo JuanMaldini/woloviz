@@ -11,6 +11,7 @@ const CONTROL_INFO_ITEMS = {
     touch: [
       { icon: "/icons/orbit.svg", label: "Orbit model" },
       { icon: "/icons/pinch.svg", label: "Pinch to zoom" },
+      { icon: "/icons/touch.png", label: "Double tap to move" },
     ],
     desktop: [
       { icon: "/icons/orbit.svg", label: "Orbit model" },
@@ -19,9 +20,8 @@ const CONTROL_INFO_ITEMS = {
   },
   "pointer-lock": {
     touch: [
-      { icon: "⌨️", label: "WASD to move" },
-      { icon: "🖱️", label: "Mouse to view" },
-      { icon: "⎋", label: "Escape to menu" },
+      { icon: "/icons/touch.png", label: "Tap x2 in floor" },
+      { icon: "/icons/touch.png", label: "Drag screen" },
     ],
     desktop: [
       { icon: "⌨️", label: "WASD to move" },
@@ -509,7 +509,7 @@ const MenuModal = ({
             </button>
             <div
               className={`grid w-full gap-3 ${
-                controlMode === "pointer-lock" ? "grid-cols-3" : "grid-cols-2"
+                currentInfoItems.length === 3 ? "grid-cols-3" : "grid-cols-2"
               }`}
             >
               {currentInfoItems.map((item, index) => (
