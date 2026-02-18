@@ -179,6 +179,15 @@ function Controls_PointerLock() {
     }
 
     let isDisposed = false;
+    const getViewportSize = () => {
+      const width = Math.max(1, container.clientWidth || window.innerWidth || 1);
+      const height = Math.max(
+        1,
+        container.clientHeight || window.innerHeight || 1,
+      );
+
+      return { width, height };
+    };
     let camera;
     let scene;
     let renderer;
@@ -529,9 +538,12 @@ function Controls_PointerLock() {
         touchLook.pointerId = null;
       };
 
+      const { width: viewportWidth, height: viewportHeight } =
+        getViewportSize();
+
       camera = new THREE.PerspectiveCamera(
         75,
-        window.innerWidth / window.innerHeight,
+        viewportWidth / viewportHeight,
         1,
         1000,
       );
@@ -770,6 +782,23 @@ function Controls_PointerLock() {
             const model = gltf.scene;
             loadedModel = model;
 
+            model.traverse((node) => {
+              if (!node.isMesh || !node.material) {
+                return;
+              }
+
+              if (Array.isArray(node.material)) {
+                node.material.forEach((materialItem) => {
+                  materialItem.side = THREE.DoubleSide;
+                  materialItem.needsUpdate = true;
+                });
+                return;
+              }
+
+              node.material.side = THREE.DoubleSide;
+              node.material.needsUpdate = true;
+            });
+
             const modelBox = new THREE.Box3().setFromObject(model);
             const modelSize = new THREE.Vector3();
             modelBox.getSize(modelSize);
@@ -858,8 +887,10 @@ function Controls_PointerLock() {
         preserveDrawingBuffer: true,
       });
       rendererRef.current = renderer;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(
+        isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2),
+      );
+      renderer.setSize(viewportWidth, viewportHeight);
       renderer.setAnimationLoop(() => {
         const time = performance.now();
 
@@ -1002,9 +1033,10 @@ function Controls_PointerLock() {
       });
 
       onWindowResize = () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        const { width, height } = getViewportSize();
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(width, height);
       };
 
       window.addEventListener("resize", onWindowResize);
