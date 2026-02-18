@@ -845,7 +845,7 @@ function Controls_Orbit() {
     React.createElement(MenuModal, {
       visible: menuVisible,
       carouselPositions: DEFAULT_ORBIT_CAROUSEL_ITEMS,
-      showCopyButton: true,
+      showCopyButton: false,
       copyMode: "orbit",
       cameraRef,
       orbitControlsRef,
@@ -854,6 +854,7 @@ function Controls_Orbit() {
       onActiveSlideChange: handleActiveSlideChange,
       onRequestScreenshot: handleRequestScreenshot,
       onToggleOverwrite: handleToggleOverwrite,
+      controlMode: "orbit",
     }),
   );
 }

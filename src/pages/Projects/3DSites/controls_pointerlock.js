@@ -149,6 +149,19 @@ function Controls_PointerLock() {
       navigator.maxTouchPoints > 0;
     const canUsePointerLock =
       typeof document.body.requestPointerLock === "function" && !isTouchDevice;
+
+    // Debug logging for mobile devices
+    if (isTouchDevice) {
+      console.log(
+        "[PointerLock Mobile] Touch device detected, pointer lock disabled",
+      );
+      console.log("[PointerLock Mobile] User Agent:", navigator.userAgent);
+      console.log(
+        "[PointerLock Mobile] Max touch points:",
+        navigator.maxTouchPoints,
+      );
+    }
+
     const playerSpeedMultiply = THREE.MathUtils.clamp(
       PLAYER_SPEED_MULTIPLY,
       0,
@@ -165,821 +178,882 @@ function Controls_PointerLock() {
       return undefined;
     }
 
+    let isDisposed = false;
     let camera;
     let scene;
     let renderer;
     let controls;
     let raycaster;
     let loadedModel = null;
-    let isDisposed = false;
+    let overwriteMaterialController;
+    let disposableMaterials;
+    let disposableGeometries;
+    let onWindowResize;
+    let onPointerDown;
+    let onPointerMove;
+    let stopTouchLook;
+    let onKeyDown;
+    let onKeyUp;
+    let onMouseMoveLocked;
+    let onLock;
+    let onUnlock;
 
-    const objects = [];
-    const obstacleBoxes = [];
-    const showLegacyScene = false;
-    let moveForward = false;
-    let moveBackward = false;
-    let moveLeft = false;
-    let moveRight = false;
+    // Add error handling for critical initialization
+    try {
 
-    let prevTime = performance.now();
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    const vertex = new THREE.Vector3();
-    const color = new THREE.Color();
-    const previousPosition = new THREE.Vector3();
-    const playerCollider = new THREE.Sphere(
-      new THREE.Vector3(),
-      PLAYER_COLLIDER_RADIUS,
-    );
-    const setPlayerColliderCenter = (x, y, z) => {
-      playerCollider.center.set(x, y - PLAYER_COLLIDER_CENTER_Y_OFFSET, z);
-    };
-    const isCollidingLaterally = () => {
-      setPlayerColliderCenter(
-        controls.object.position.x,
-        controls.object.position.y,
-        controls.object.position.z,
-      );
+      const objects = [];
+      const obstacleBoxes = [];
+      const showLegacyScene = false;
+      let moveForward = false;
+      let moveBackward = false;
+      let moveLeft = false;
+      let moveRight = false;
 
-      return obstacleBoxes.some((obstacle) =>
-        obstacle.intersectsSphere(playerCollider),
-      );
-    };
-
-    const disposableMaterials = [];
-    const disposableGeometries = [];
-    const gltfLoader = new GLTFLoader();
-    const sampleGlbCandidates = [NOISELESS_GLB_URL];
-    const targetModelHeight = 42;
-    const tapRaycaster = new THREE.Raycaster();
-    const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const tapPointer = new THREE.Vector2();
-    const tapPoint = new THREE.Vector3();
-    const mobileTeleport = {
-      active: false,
-      startX: 0,
-      startZ: 0,
-      endX: 0,
-      endZ: 0,
-      startTime: 0,
-      duration: 450,
-    };
-    const touchLook = {
-      active: false,
-      pointerId: null,
-      lastX: 0,
-      lastY: 0,
-      sensitivity: 0.003,
-      maxPitch: Math.PI / 2 - 0.05,
-    };
-    const lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
-    const lookRotationMatrix = new THREE.Matrix4();
-    let lastTapTime = 0;
-    let lastTapX = 0;
-    let lastTapY = 0;
-    const lookSensitivity = touchLook.sensitivity * playerLookMultiply;
-    const lookSensitivityTouch = touchLook.sensitivity * playerLookMultiply * 2.5;
-    const smoothSlidePose = {
-      active: false,
-      startTime: 0,
-      duration: 620,
-      startPosition: new THREE.Vector3(),
-      endPosition: new THREE.Vector3(),
-      startQuaternion: new THREE.Quaternion(),
-      endQuaternion: new THREE.Quaternion(),
-    };
-
-    handleActiveSlideChangeRef.current = ({ slide }) => {
-      if (!slide?.position || (!slide?.rotation && !slide?.direction)) {
-        return;
-      }
-
-      // Si hay una animación en curso, completarla inmediatamente antes de iniciar la nueva
-      if (smoothSlidePose.active) {
-        controls.object.position.copy(smoothSlidePose.endPosition);
-        camera.quaternion.copy(smoothSlidePose.endQuaternion);
-        smoothSlidePose.active = false;
-      }
-
-      const directionVector = slide.rotation
-        ? toDirectionFromRotation(slide.rotation)
-        : toNormalizedDirectionVector(slide.direction);
-      const nextPosition = new THREE.Vector3(
-        Number(slide.position.x || 0),
-        Number(slide.position.y || PLAYER_GROUND_Y),
-        Number(slide.position.z || 0),
-      );
-
-      lookRotationMatrix.lookAt(
-        new THREE.Vector3(0, 0, 0),
-        directionVector,
-        new THREE.Vector3(0, 1, 0),
-      );
-
-      const nextQuaternion = new THREE.Quaternion().setFromRotationMatrix(
-        lookRotationMatrix,
-      );
-
-      velocity.set(0, 0, 0);
-      mobileTeleport.active = false;
-      smoothSlidePose.startPosition.copy(controls.object.position);
-      smoothSlidePose.endPosition.copy(nextPosition);
-      smoothSlidePose.startQuaternion.copy(camera.quaternion);
-      smoothSlidePose.endQuaternion.copy(nextQuaternion);
-      smoothSlidePose.startTime = performance.now();
-      smoothSlidePose.active = true;
-    };
-
-    const applyLookDelta = (deltaX, deltaY, sensitivity = lookSensitivity) => {
-      lookEuler.setFromQuaternion(camera.quaternion);
-      lookEuler.y -= deltaX * sensitivity;
-      lookEuler.x -= deltaY * sensitivity;
-      lookEuler.x = THREE.MathUtils.clamp(
-        lookEuler.x,
-        -touchLook.maxPitch,
-        touchLook.maxPitch,
-      );
-      lookEuler.z = 0;
-      camera.quaternion.setFromEuler(lookEuler);
-    };
-
-    const onMouseMoveLocked = (event) => {
-      if (!controls || !controls.isLocked) {
-        return;
-      }
-
-      const deltaX = THREE.MathUtils.clamp(
-        event.movementX || 0,
-        -LOOK_MAX_DELTA_PER_EVENT,
-        LOOK_MAX_DELTA_PER_EVENT,
-      );
-      const deltaY = THREE.MathUtils.clamp(
-        event.movementY || 0,
-        -LOOK_MAX_DELTA_PER_EVENT,
-        LOOK_MAX_DELTA_PER_EVENT,
-      );
-
-      applyLookDelta(deltaX, deltaY);
-    };
-
-    const isPointBlocked = (x, y, z) => {
-      setPlayerColliderCenter(x, y, z);
-      return obstacleBoxes.some((obstacle) =>
-        obstacle.intersectsSphere(playerCollider),
-      );
-    };
-
-    const startSmoothTeleport = (targetX, targetZ) => {
-      const currentY = controls.object.position.y;
-
-      if (isPointBlocked(targetX, currentY, targetZ)) {
-        return;
-      }
-
-      mobileTeleport.active = true;
-      mobileTeleport.startX = controls.object.position.x;
-      mobileTeleport.startZ = controls.object.position.z;
-      mobileTeleport.endX = targetX;
-      mobileTeleport.endZ = targetZ;
-      mobileTeleport.startTime = performance.now();
-      velocity.x = 0;
-      velocity.z = 0;
-    };
-
-    const tryStepUp = () => {
-      if (velocity.y > 0) {
-        return false;
-      }
-
-      const originalY = controls.object.position.y;
-      controls.object.position.y = originalY + PLAYER_STEP_HEIGHT;
-
-      if (isCollidingLaterally()) {
-        controls.object.position.y = originalY;
-        return false;
-      }
-
-      velocity.y = 0;
-      return true;
-    };
-
-    const shouldRegisterObstacle = (box) => {
-      if (!box || box.isEmpty()) {
-        return false;
-      }
-
-      const size = new THREE.Vector3();
-      box.getSize(size);
-
-      const looksLikeEnclosingHull =
-        size.x > COLLISION_MAX_OBSTACLE_SPAN ||
-        size.z > COLLISION_MAX_OBSTACLE_SPAN;
-
-      if (looksLikeEnclosingHull) {
-        return false;
-      }
-
-      const looksLikeFlatWalkableSurface =
-        size.y <= COLLISION_MAX_WALKABLE_THICKNESS &&
-        size.x > size.y * 4 &&
-        size.z > size.y * 4;
-
-      if (looksLikeFlatWalkableSurface) {
-        return false;
-      }
-
-      if (size.y < COLLISION_MIN_HEIGHT) {
-        return false;
-      }
-
-      const spawnColliderCenter = new THREE.Vector3(
-        INITIAL_POINTERLOCK_POSITION.x,
-        INITIAL_POINTERLOCK_POSITION.y - PLAYER_COLLIDER_CENTER_Y_OFFSET,
-        INITIAL_POINTERLOCK_POSITION.z,
-      );
-      const closestToSpawn = box.clampPoint(
-        spawnColliderCenter,
+      let prevTime = performance.now();
+      const velocity = new THREE.Vector3();
+      const direction = new THREE.Vector3();
+      const vertex = new THREE.Vector3();
+      const color = new THREE.Color();
+      const previousPosition = new THREE.Vector3();
+      const playerCollider = new THREE.Sphere(
         new THREE.Vector3(),
+        PLAYER_COLLIDER_RADIUS,
       );
-      const spawnTouchesObstacle =
-        closestToSpawn.distanceTo(spawnColliderCenter) <=
-        PLAYER_COLLIDER_RADIUS + 0.15;
+      const setPlayerColliderCenter = (x, y, z) => {
+        playerCollider.center.set(x, y - PLAYER_COLLIDER_CENTER_Y_OFFSET, z);
+      };
+      const isCollidingLaterally = () => {
+        setPlayerColliderCenter(
+          controls.object.position.x,
+          controls.object.position.y,
+          controls.object.position.z,
+        );
 
-      if (spawnTouchesObstacle) {
-        return false;
-      }
+        return obstacleBoxes.some((obstacle) =>
+          obstacle.intersectsSphere(playerCollider),
+        );
+      };
 
-      return true;
-    };
+      disposableMaterials = [];
+      disposableGeometries = [];
+      const gltfLoader = new GLTFLoader();
+      const sampleGlbCandidates = [NOISELESS_GLB_URL];
+      const targetModelHeight = 42;
+      const tapRaycaster = new THREE.Raycaster();
+      const navigationPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const tapPointer = new THREE.Vector2();
+      const tapPoint = new THREE.Vector3();
+      const mobileTeleport = {
+        active: false,
+        startX: 0,
+        startZ: 0,
+        endX: 0,
+        endZ: 0,
+        startTime: 0,
+        duration: 450,
+      };
+      const touchLook = {
+        active: false,
+        pointerId: null,
+        lastX: 0,
+        lastY: 0,
+        sensitivity: 0.003,
+        maxPitch: Math.PI / 2 - 0.05,
+      };
+      const lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
+      const lookRotationMatrix = new THREE.Matrix4();
+      let lastTapTime = 0;
+      let lastTapX = 0;
+      let lastTapY = 0;
+      const lookSensitivity = touchLook.sensitivity * playerLookMultiply;
+      const lookSensitivityTouch =
+        touchLook.sensitivity * playerLookMultiply * 2.5;
+      const smoothSlidePose = {
+        active: false,
+        startTime: 0,
+        duration: 620,
+        startPosition: new THREE.Vector3(),
+        endPosition: new THREE.Vector3(),
+        startQuaternion: new THREE.Quaternion(),
+        endQuaternion: new THREE.Quaternion(),
+      };
 
-    const onPointerDown = (event) => {
-      if (!controls.isLocked && canUsePointerLock) {
+      handleActiveSlideChangeRef.current = ({ slide }) => {
+        if (!slide?.position || (!slide?.rotation && !slide?.direction)) {
+          return;
+        }
+
+        // Si hay una animación en curso, completarla inmediatamente antes de iniciar la nueva
+        if (smoothSlidePose.active) {
+          controls.object.position.copy(smoothSlidePose.endPosition);
+          camera.quaternion.copy(smoothSlidePose.endQuaternion);
+          smoothSlidePose.active = false;
+        }
+
+        const directionVector = slide.rotation
+          ? toDirectionFromRotation(slide.rotation)
+          : toNormalizedDirectionVector(slide.direction);
+        const nextPosition = new THREE.Vector3(
+          Number(slide.position.x || 0),
+          Number(slide.position.y || PLAYER_GROUND_Y),
+          Number(slide.position.z || 0),
+        );
+
+        lookRotationMatrix.lookAt(
+          new THREE.Vector3(0, 0, 0),
+          directionVector,
+          new THREE.Vector3(0, 1, 0),
+        );
+
+        const nextQuaternion = new THREE.Quaternion().setFromRotationMatrix(
+          lookRotationMatrix,
+        );
+
+        velocity.set(0, 0, 0);
+        mobileTeleport.active = false;
+        smoothSlidePose.startPosition.copy(controls.object.position);
+        smoothSlidePose.endPosition.copy(nextPosition);
+        smoothSlidePose.startQuaternion.copy(camera.quaternion);
+        smoothSlidePose.endQuaternion.copy(nextQuaternion);
+        smoothSlidePose.startTime = performance.now();
+        smoothSlidePose.active = true;
+      };
+
+      const applyLookDelta = (
+        deltaX,
+        deltaY,
+        sensitivity = lookSensitivity,
+      ) => {
+        lookEuler.setFromQuaternion(camera.quaternion);
+        lookEuler.y -= deltaX * sensitivity;
+        lookEuler.x -= deltaY * sensitivity;
+        lookEuler.x = THREE.MathUtils.clamp(
+          lookEuler.x,
+          -touchLook.maxPitch,
+          touchLook.maxPitch,
+        );
+        lookEuler.z = 0;
+        camera.quaternion.setFromEuler(lookEuler);
+      };
+
+      onMouseMoveLocked = (event) => {
+        if (!controls || !controls.isLocked) {
+          return;
+        }
+
+        const deltaX = THREE.MathUtils.clamp(
+          event.movementX || 0,
+          -LOOK_MAX_DELTA_PER_EVENT,
+          LOOK_MAX_DELTA_PER_EVENT,
+        );
+        const deltaY = THREE.MathUtils.clamp(
+          event.movementY || 0,
+          -LOOK_MAX_DELTA_PER_EVENT,
+          LOOK_MAX_DELTA_PER_EVENT,
+        );
+
+        applyLookDelta(deltaX, deltaY);
+      };
+
+      const isPointBlocked = (x, y, z) => {
+        setPlayerColliderCenter(x, y, z);
+        return obstacleBoxes.some((obstacle) =>
+          obstacle.intersectsSphere(playerCollider),
+        );
+      };
+
+      const startSmoothTeleport = (targetX, targetZ) => {
+        const currentY = controls.object.position.y;
+
+        if (isPointBlocked(targetX, currentY, targetZ)) {
+          return;
+        }
+
+        mobileTeleport.active = true;
+        mobileTeleport.startX = controls.object.position.x;
+        mobileTeleport.startZ = controls.object.position.z;
+        mobileTeleport.endX = targetX;
+        mobileTeleport.endZ = targetZ;
+        mobileTeleport.startTime = performance.now();
+        velocity.x = 0;
+        velocity.z = 0;
+      };
+
+      const tryStepUp = () => {
+        if (velocity.y > 0) {
+          return false;
+        }
+
+        const originalY = controls.object.position.y;
+        controls.object.position.y = originalY + PLAYER_STEP_HEIGHT;
+
+        if (isCollidingLaterally()) {
+          controls.object.position.y = originalY;
+          return false;
+        }
+
+        velocity.y = 0;
+        return true;
+      };
+
+      const shouldRegisterObstacle = (box) => {
+        if (!box || box.isEmpty()) {
+          return false;
+        }
+
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const looksLikeEnclosingHull =
+          size.x > COLLISION_MAX_OBSTACLE_SPAN ||
+          size.z > COLLISION_MAX_OBSTACLE_SPAN;
+
+        if (looksLikeEnclosingHull) {
+          return false;
+        }
+
+        const looksLikeFlatWalkableSurface =
+          size.y <= COLLISION_MAX_WALKABLE_THICKNESS &&
+          size.x > size.y * 4 &&
+          size.z > size.y * 4;
+
+        if (looksLikeFlatWalkableSurface) {
+          return false;
+        }
+
+        if (size.y < COLLISION_MIN_HEIGHT) {
+          return false;
+        }
+
+        const spawnColliderCenter = new THREE.Vector3(
+          INITIAL_POINTERLOCK_POSITION.x,
+          INITIAL_POINTERLOCK_POSITION.y - PLAYER_COLLIDER_CENTER_Y_OFFSET,
+          INITIAL_POINTERLOCK_POSITION.z,
+        );
+        const closestToSpawn = box.clampPoint(
+          spawnColliderCenter,
+          new THREE.Vector3(),
+        );
+        const spawnTouchesObstacle =
+          closestToSpawn.distanceTo(spawnColliderCenter) <=
+          PLAYER_COLLIDER_RADIUS + 0.15;
+
+        if (spawnTouchesObstacle) {
+          return false;
+        }
+
+        return true;
+      };
+
+      onPointerDown = (event) => {
+        if (!controls.isLocked && canUsePointerLock) {
+          if (menuVisibleRef.current) {
+            return;
+          }
+
+          try {
+            const result = controls.lock();
+            if (result && typeof result.catch === "function") {
+              result.catch(() => {});
+            }
+          } catch {
+            // Ignore lock errors; unlock event handles UI state.
+          }
+          return;
+        }
+
+        if (!controls.isLocked && !touchNavigationStarted) {
+          if (!canUsePointerLock && !menuVisibleRef.current) {
+            touchNavigationStarted = true;
+          } else {
+            return;
+          }
+        }
+
         if (menuVisibleRef.current) {
           return;
         }
 
-        try {
-          const result = controls.lock();
-          if (result && typeof result.catch === "function") {
-            result.catch(() => {});
-          }
-        } catch {
-          // Ignore lock errors; unlock event handles UI state.
+        if (touchNavigationStarted && event.pointerType === "touch") {
+          touchLook.active = true;
+          touchLook.pointerId = event.pointerId;
+          touchLook.lastX = event.clientX;
+          touchLook.lastY = event.clientY;
         }
-        return;
-      }
 
-      if (!controls.isLocked && !touchNavigationStarted) {
-        if (!canUsePointerLock && !menuVisibleRef.current) {
-          touchNavigationStarted = true;
-        } else {
+        const now = performance.now();
+        const elapsed = now - lastTapTime;
+        const dx = event.clientX - lastTapX;
+        const dy = event.clientY - lastTapY;
+        const isNear = dx * dx + dy * dy <= 32 * 32;
+        const isDoubleTap = elapsed > 0 && elapsed < 320 && isNear;
+
+        lastTapTime = now;
+        lastTapX = event.clientX;
+        lastTapY = event.clientY;
+
+        if (!isDoubleTap) {
           return;
         }
-      }
 
-      if (menuVisibleRef.current) {
-        return;
-      }
+        const rect = renderer.domElement.getBoundingClientRect();
+        tapPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        tapPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      if (touchNavigationStarted && event.pointerType === "touch") {
-        touchLook.active = true;
-        touchLook.pointerId = event.pointerId;
+        tapRaycaster.setFromCamera(tapPointer, camera);
+
+        if (tapRaycaster.ray.intersectPlane(navigationPlane, tapPoint)) {
+          startSmoothTeleport(tapPoint.x, tapPoint.z);
+        }
+      };
+
+      onPointerMove = (event) => {
+        if (!touchLook.active || touchLook.pointerId !== event.pointerId) {
+          return;
+        }
+
+        const dx = event.clientX - touchLook.lastX;
+        const dy = event.clientY - touchLook.lastY;
         touchLook.lastX = event.clientX;
         touchLook.lastY = event.clientY;
-      }
+        applyLookDelta(dx, dy, lookSensitivityTouch);
+      };
 
-      const now = performance.now();
-      const elapsed = now - lastTapTime;
-      const dx = event.clientX - lastTapX;
-      const dy = event.clientY - lastTapY;
-      const isNear = dx * dx + dy * dy <= 32 * 32;
-      const isDoubleTap = elapsed > 0 && elapsed < 320 && isNear;
+      stopTouchLook = (event) => {
+        if (
+          touchLook.pointerId !== null &&
+          touchLook.pointerId !== event.pointerId
+        ) {
+          return;
+        }
+        touchLook.active = false;
+        touchLook.pointerId = null;
+      };
 
-      lastTapTime = now;
-      lastTapX = event.clientX;
-      lastTapY = event.clientY;
-
-      if (!isDoubleTap) {
-        return;
-      }
-
-      const rect = renderer.domElement.getBoundingClientRect();
-      tapPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      tapPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      tapRaycaster.setFromCamera(tapPointer, camera);
-
-      if (tapRaycaster.ray.intersectPlane(navigationPlane, tapPoint)) {
-        startSmoothTeleport(tapPoint.x, tapPoint.z);
-      }
-    };
-
-    const onPointerMove = (event) => {
-      if (!touchLook.active || touchLook.pointerId !== event.pointerId) {
-        return;
-      }
-
-      const dx = event.clientX - touchLook.lastX;
-      const dy = event.clientY - touchLook.lastY;
-      touchLook.lastX = event.clientX;
-      touchLook.lastY = event.clientY;
-      applyLookDelta(dx, dy, lookSensitivityTouch);
-    };
-
-    const stopTouchLook = (event) => {
-      if (
-        touchLook.pointerId !== null &&
-        touchLook.pointerId !== event.pointerId
-      ) {
-        return;
-      }
-      touchLook.active = false;
-      touchLook.pointerId = null;
-    };
-
-    camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      1,
-      1000,
-    );
-    cameraRef.current = camera;
-    camera.position.copy(INITIAL_POINTERLOCK_POSITION);
-
-    scene = new THREE.Scene();
-    sceneRef.current = scene;
-    scene.background = new THREE.Color(0xffffff);
-    scene.fog = new THREE.Fog(0xffffff, 0, 750);
-    const overwriteMaterialController = createOverwriteMaterialController();
-    overwriteMaterialControllerRef.current = overwriteMaterialController;
-    overwriteMaterialController.setScene(scene);
-    overwriteMaterialController.setEnabled(overwriteEnabledRef.current);
-
-    const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 2.5);
-    light.position.set(0.5, 1, 0.75);
-    scene.add(light);
-
-    controls = new PointerLockControls(camera, document.body);
-    pointerLockControlsRef.current = controls;
-    controls.pointerSpeed = 0;
-
-    const onLock = () => {
-      requestResume();
-    };
-
-    const onUnlock = () => {
-      requestPause();
-    };
-
-    controls.addEventListener("lock", onLock);
-    controls.addEventListener("unlock", onUnlock);
-
-    scene.add(controls.object);
-    controls.object.position.copy(INITIAL_POINTERLOCK_POSITION);
-    camera.rotation.order = "YXZ";
-    controls.object.rotation.order = "YXZ";
-    lookEuler.set(
-      INITIAL_POINTERLOCK_ROTATION.x,
-      INITIAL_POINTERLOCK_ROTATION.y,
-      INITIAL_POINTERLOCK_ROTATION.z,
-      "YXZ",
-    );
-    camera.quaternion.setFromEuler(lookEuler);
-
-    const onKeyDown = (event) => {
-      switch (event.code) {
-        case "ArrowUp":
-        case "KeyW":
-          moveForward = true;
-          break;
-        case "ArrowLeft":
-        case "KeyA":
-          moveLeft = true;
-          break;
-        case "ArrowDown":
-        case "KeyS":
-          moveBackward = true;
-          break;
-        case "ArrowRight":
-        case "KeyD":
-          moveRight = true;
-          break;
-        default:
-          break;
-      }
-    };
-
-    const onKeyUp = (event) => {
-      switch (event.code) {
-        case "ArrowUp":
-        case "KeyW":
-          moveForward = false;
-          break;
-        case "ArrowLeft":
-        case "KeyA":
-          moveLeft = false;
-          break;
-        case "ArrowDown":
-        case "KeyS":
-          moveBackward = false;
-          break;
-        case "ArrowRight":
-        case "KeyD":
-          moveRight = false;
-          break;
-        default:
-          break;
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("keyup", onKeyUp);
-    document.addEventListener("mousemove", onMouseMoveLocked);
-
-    raycaster = new THREE.Raycaster(
-      new THREE.Vector3(),
-      new THREE.Vector3(0, -1, 0),
-      0,
-      10,
-    );
-
-    if (showLegacyScene) {
-      let floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
-      floorGeometry.rotateX(-Math.PI / 2);
-
-      let position = floorGeometry.attributes.position;
-
-      for (let index = 0, length = position.count; index < length; index += 1) {
-        vertex.fromBufferAttribute(position, index);
-        vertex.x += Math.random() * 20 - 10;
-        vertex.y += Math.random() * 2;
-        vertex.z += Math.random() * 20 - 10;
-        position.setXYZ(index, vertex.x, vertex.y, vertex.z);
-      }
-
-      floorGeometry = floorGeometry.toNonIndexed();
-      position = floorGeometry.attributes.position;
-
-      const colorsFloor = [];
-      for (let index = 0, length = position.count; index < length; index += 1) {
-        color.setHSL(
-          Math.random() * 0.3 + 0.5,
-          0.75,
-          Math.random() * 0.25 + 0.75,
-          THREE.SRGBColorSpace,
-        );
-        colorsFloor.push(color.r, color.g, color.b);
-      }
-
-      floorGeometry.setAttribute(
-        "color",
-        new THREE.Float32BufferAttribute(colorsFloor, 3),
+      camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        1,
+        1000,
       );
-      disposableGeometries.push(floorGeometry);
+      cameraRef.current = camera;
+      camera.position.copy(INITIAL_POINTERLOCK_POSITION);
 
-      const floorMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
-      disposableMaterials.push(floorMaterial);
+      scene = new THREE.Scene();
+      sceneRef.current = scene;
+      scene.background = new THREE.Color(0xffffff);
+      scene.fog = new THREE.Fog(0xffffff, 0, 750);
+      overwriteMaterialController = createOverwriteMaterialController();
+      overwriteMaterialControllerRef.current = overwriteMaterialController;
+      overwriteMaterialController.setScene(scene);
+      overwriteMaterialController.setEnabled(overwriteEnabledRef.current);
 
-      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-      scene.add(floor);
+      const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 2.5);
+      light.position.set(0.5, 1, 0.75);
+      scene.add(light);
 
-      const boxGeometry = new THREE.BoxGeometry(20, 20, 20).toNonIndexed();
-      disposableGeometries.push(boxGeometry);
-      position = boxGeometry.attributes.position;
+      controls = new PointerLockControls(camera, document.body);
+      pointerLockControlsRef.current = controls;
+      controls.pointerSpeed = 0;
 
-      const colorsBox = [];
-      for (let index = 0, length = position.count; index < length; index += 1) {
-        color.setHSL(
-          Math.random() * 0.3 + 0.5,
-          0.75,
-          Math.random() * 0.25 + 0.75,
-          THREE.SRGBColorSpace,
-        );
-        colorsBox.push(color.r, color.g, color.b);
-      }
-      boxGeometry.setAttribute(
-        "color",
-        new THREE.Float32BufferAttribute(colorsBox, 3),
+      onLock = () => {
+        requestResume();
+      };
+
+      onUnlock = () => {
+        requestPause();
+      };
+
+      controls.addEventListener("lock", onLock);
+      controls.addEventListener("unlock", onUnlock);
+
+      scene.add(controls.object);
+      controls.object.position.copy(INITIAL_POINTERLOCK_POSITION);
+      camera.rotation.order = "YXZ";
+      controls.object.rotation.order = "YXZ";
+      lookEuler.set(
+        INITIAL_POINTERLOCK_ROTATION.x,
+        INITIAL_POINTERLOCK_ROTATION.y,
+        INITIAL_POINTERLOCK_ROTATION.z,
+        "YXZ",
+      );
+      camera.quaternion.setFromEuler(lookEuler);
+
+      onKeyDown = (event) => {
+        switch (event.code) {
+          case "ArrowUp":
+          case "KeyW":
+            moveForward = true;
+            break;
+          case "ArrowLeft":
+          case "KeyA":
+            moveLeft = true;
+            break;
+          case "ArrowDown":
+          case "KeyS":
+            moveBackward = true;
+            break;
+          case "ArrowRight":
+          case "KeyD":
+            moveRight = true;
+            break;
+          default:
+            break;
+        }
+      };
+
+      onKeyUp = (event) => {
+        switch (event.code) {
+          case "ArrowUp":
+          case "KeyW":
+            moveForward = false;
+            break;
+          case "ArrowLeft":
+          case "KeyA":
+            moveLeft = false;
+            break;
+          case "ArrowDown":
+          case "KeyS":
+            moveBackward = false;
+            break;
+          case "ArrowRight":
+          case "KeyD":
+            moveRight = false;
+            break;
+          default:
+            break;
+        }
+      };
+
+      document.addEventListener("keydown", onKeyDown);
+      document.addEventListener("keyup", onKeyUp);
+      document.addEventListener("mousemove", onMouseMoveLocked);
+
+      raycaster = new THREE.Raycaster(
+        new THREE.Vector3(),
+        new THREE.Vector3(0, -1, 0),
+        0,
+        10,
       );
 
-      for (let index = 0; index < 500; index += 1) {
-        const boxMaterial = new THREE.MeshPhongMaterial({
-          specular: 0xffffff,
-          flatShading: true,
+      if (showLegacyScene) {
+        let floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
+        floorGeometry.rotateX(-Math.PI / 2);
+
+        let position = floorGeometry.attributes.position;
+
+        for (
+          let index = 0, length = position.count;
+          index < length;
+          index += 1
+        ) {
+          vertex.fromBufferAttribute(position, index);
+          vertex.x += Math.random() * 20 - 10;
+          vertex.y += Math.random() * 2;
+          vertex.z += Math.random() * 20 - 10;
+          position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+        }
+
+        floorGeometry = floorGeometry.toNonIndexed();
+        position = floorGeometry.attributes.position;
+
+        const colorsFloor = [];
+        for (
+          let index = 0, length = position.count;
+          index < length;
+          index += 1
+        ) {
+          color.setHSL(
+            Math.random() * 0.3 + 0.5,
+            0.75,
+            Math.random() * 0.25 + 0.75,
+            THREE.SRGBColorSpace,
+          );
+          colorsFloor.push(color.r, color.g, color.b);
+        }
+
+        floorGeometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute(colorsFloor, 3),
+        );
+        disposableGeometries.push(floorGeometry);
+
+        const floorMaterial = new THREE.MeshBasicMaterial({
           vertexColors: true,
         });
-        boxMaterial.color.setHSL(
-          Math.random() * 0.2 + 0.5,
-          0.75,
-          Math.random() * 0.25 + 0.75,
-          THREE.SRGBColorSpace,
-        );
-        disposableMaterials.push(boxMaterial);
+        disposableMaterials.push(floorMaterial);
 
-        const box = new THREE.Mesh(boxGeometry, boxMaterial);
-        box.position.x = Math.floor(Math.random() * 20 - 10) * 20;
-        box.position.y = Math.floor(Math.random() * 20) * 20 + 10;
-        box.position.z = Math.floor(Math.random() * 20 - 10) * 20;
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        scene.add(floor);
 
-        scene.add(box);
-        objects.push(box);
-        obstacleBoxes.push(
-          new THREE.Box3().setFromCenterAndSize(
-            box.position.clone(),
-            new THREE.Vector3(20, 20, 20),
-          ),
+        const boxGeometry = new THREE.BoxGeometry(20, 20, 20).toNonIndexed();
+        disposableGeometries.push(boxGeometry);
+        position = boxGeometry.attributes.position;
+
+        const colorsBox = [];
+        for (
+          let index = 0, length = position.count;
+          index < length;
+          index += 1
+        ) {
+          color.setHSL(
+            Math.random() * 0.3 + 0.5,
+            0.75,
+            Math.random() * 0.25 + 0.75,
+            THREE.SRGBColorSpace,
+          );
+          colorsBox.push(color.r, color.g, color.b);
+        }
+        boxGeometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute(colorsBox, 3),
         );
+
+        for (let index = 0; index < 500; index += 1) {
+          const boxMaterial = new THREE.MeshPhongMaterial({
+            specular: 0xffffff,
+            flatShading: true,
+            vertexColors: true,
+          });
+          boxMaterial.color.setHSL(
+            Math.random() * 0.2 + 0.5,
+            0.75,
+            Math.random() * 0.25 + 0.75,
+            THREE.SRGBColorSpace,
+          );
+          disposableMaterials.push(boxMaterial);
+
+          const box = new THREE.Mesh(boxGeometry, boxMaterial);
+          box.position.x = Math.floor(Math.random() * 20 - 10) * 20;
+          box.position.y = Math.floor(Math.random() * 20) * 20 + 10;
+          box.position.z = Math.floor(Math.random() * 20 - 10) * 20;
+
+          scene.add(box);
+          objects.push(box);
+          obstacleBoxes.push(
+            new THREE.Box3().setFromCenterAndSize(
+              box.position.clone(),
+              new THREE.Vector3(20, 20, 20),
+            ),
+          );
+        }
       }
-    }
 
-    const loadWalkableModel = (candidateIndex = 0, retryAttempt = 0) => {
-      if (candidateIndex >= sampleGlbCandidates.length) {
+      const loadWalkableModel = (candidateIndex = 0, retryAttempt = 0) => {
+        if (candidateIndex >= sampleGlbCandidates.length) {
+          if (!isDisposed) {
+            setIsModelLoading(false);
+            setModelLoadError(true);
+          }
+          return;
+        }
+
         if (!isDisposed) {
-          setIsModelLoading(false);
-          setModelLoadError(true);
-        }
-        return;
-      }
-
-      if (!isDisposed) {
-        setIsModelLoading(true);
-        setModelLoadError(false);
-        setLoadedBytes(0);
-        setTotalBytes(0);
-      }
-
-      const baseGlbUrl = sampleGlbCandidates[candidateIndex];
-      const requestUrl =
-        retryAttempt > 0
-          ? `${baseGlbUrl}${baseGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
-          : baseGlbUrl;
-
-      gltfLoader.load(
-        requestUrl,
-        (gltf) => {
-          if (isDisposed) {
-            return;
-          }
-
-          const model = gltf.scene;
-          loadedModel = model;
-
-          const modelBox = new THREE.Box3().setFromObject(model);
-          const modelSize = new THREE.Vector3();
-          modelBox.getSize(modelSize);
-
-          if (modelSize.y > 0) {
-            const scaleFactor = targetModelHeight / modelSize.y;
-            model.scale.setScalar(scaleFactor);
-          }
-
-          model.updateMatrixWorld(true);
-          modelBox.setFromObject(model);
-
-          const modelCenter = new THREE.Vector3();
-          modelBox.getCenter(modelCenter);
-
-          model.position.x -= modelCenter.x;
-          model.position.z -= modelCenter.z;
-          model.position.y -= modelBox.min.y;
-          model.position.add(MODEL_POSITION_OFFSET);
-
-          scene.add(model);
-          model.updateMatrixWorld(true);
-          obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
-
-          if (ENABLE_MODEL_COLLISIONS) {
-            model.traverse((node) => {
-              if (!node.isMesh) {
-                return;
-              }
-
-              if (node.geometry) {
-                const box = new THREE.Box3().setFromObject(node);
-                if (shouldRegisterObstacle(box)) {
-                  obstacleBoxes.push(box);
-                }
-              }
-            });
-          }
-
-          setIsModelLoading(false);
+          setIsModelLoading(true);
           setModelLoadError(false);
-        },
-        (event) => {
-          if (isDisposed) {
-            return;
-          }
-
-          const nextLoaded = Number(event?.loaded || 0);
-          const nextTotal = Number(event?.total || 0);
-          setLoadedBytes(nextLoaded);
-          setTotalBytes(nextTotal > 0 ? nextTotal : 0);
-        },
-        (error) => {
-          if (isDisposed) {
-            return;
-          }
-
-          const statusCode = Number(error?.target?.status || 0);
-          const isGatewayError = statusCode === 502;
-          const canRetry = retryAttempt < GLB_MAX_RETRIES;
-
-          if (isGatewayError && canRetry) {
-            const nextAttempt = retryAttempt + 1;
-            window.setTimeout(() => {
-              loadWalkableModel(candidateIndex, nextAttempt);
-            }, GLB_RETRY_DELAY_MS * nextAttempt);
-
-            return;
-          }
-
-          if (candidateIndex < sampleGlbCandidates.length - 1) {
-            loadWalkableModel(candidateIndex + 1);
-            return;
-          }
-
-          setIsModelLoading(false);
-          setModelLoadError(true);
-        },
-      );
-    };
-
-    loadWalkableModel();
-
-    renderer = new THREE.WebGLRenderer({
-      antialias: !isTouchDevice,
-      preserveDrawingBuffer: true,
-    });
-    rendererRef.current = renderer;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setAnimationLoop(() => {
-      const time = performance.now();
-
-      if (mobileTeleport.active) {
-        const t = Math.min(
-          (time - mobileTeleport.startTime) / mobileTeleport.duration,
-          1,
-        );
-        const eased = t * (2 - t);
-        const nextX = THREE.MathUtils.lerp(
-          mobileTeleport.startX,
-          mobileTeleport.endX,
-          eased,
-        );
-        const nextZ = THREE.MathUtils.lerp(
-          mobileTeleport.startZ,
-          mobileTeleport.endZ,
-          eased,
-        );
-        const currentY = controls.object.position.y;
-
-        if (isPointBlocked(nextX, currentY, nextZ)) {
-          mobileTeleport.active = false;
-        } else {
-          controls.object.position.x = nextX;
-          controls.object.position.z = nextZ;
-          if (t >= 1) {
-            mobileTeleport.active = false;
-          }
-        }
-      }
-
-      if (smoothSlidePose.active) {
-        const t = Math.min(
-          (time - smoothSlidePose.startTime) / smoothSlidePose.duration,
-          1,
-        );
-        const eased = t * (2 - t);
-
-        controls.object.position.lerpVectors(
-          smoothSlidePose.startPosition,
-          smoothSlidePose.endPosition,
-          eased,
-        );
-        camera.quaternion.slerpQuaternions(
-          smoothSlidePose.startQuaternion,
-          smoothSlidePose.endQuaternion,
-          eased,
-        );
-        lookEuler.setFromQuaternion(camera.quaternion);
-
-        if (t >= 1) {
-          smoothSlidePose.active = false;
-        }
-      }
-
-      if (controls.isLocked || touchNavigationStarted) {
-        raycaster.ray.origin.copy(controls.object.position);
-        raycaster.ray.origin.y -= 10;
-
-        const intersections = raycaster.intersectObjects(objects, false);
-        const onObject = intersections.length > 0;
-
-        const delta = (time - prevTime) / 1000;
-
-        velocity.x -= velocity.x * 10.0 * delta;
-        velocity.z -= velocity.z * 10.0 * delta;
-        velocity.y -= 9.8 * 100.0 * delta;
-
-        direction.z = Number(moveForward) - Number(moveBackward);
-        direction.x = Number(moveRight) - Number(moveLeft);
-        direction.normalize();
-
-        if (moveForward || moveBackward) {
-          velocity.z -= direction.z * (400.0 * playerSpeedMultiply) * delta;
-        }
-        if (moveLeft || moveRight) {
-          velocity.x -= direction.x * (400.0 * playerSpeedMultiply) * delta;
+          setLoadedBytes(0);
+          setTotalBytes(0);
         }
 
-        if (onObject) {
-          velocity.y = Math.max(0, velocity.y);
-        }
+        const baseGlbUrl = sampleGlbCandidates[candidateIndex];
+        const requestUrl =
+          retryAttempt > 0
+            ? `${baseGlbUrl}${baseGlbUrl.includes("?") ? "&" : "?"}retry=${retryAttempt}`
+            : baseGlbUrl;
 
-        const moveRightDelta = -velocity.x * delta;
-        const moveForwardDelta = -velocity.z * delta;
-
-        if (moveRightDelta !== 0) {
-          previousPosition.copy(controls.object.position);
-          controls.moveRight(moveRightDelta);
-
-          if (isCollidingLaterally()) {
-            const stepped = tryStepUp();
-            if (!stepped) {
-              controls.object.position.x = previousPosition.x;
-              controls.object.position.z = previousPosition.z;
-              controls.object.position.y = previousPosition.y;
-              velocity.x = 0;
+        gltfLoader.load(
+          requestUrl,
+          (gltf) => {
+            if (isDisposed) {
+              return;
             }
-          }
-        }
 
-        if (moveForwardDelta !== 0) {
-          previousPosition.copy(controls.object.position);
-          controls.moveForward(moveForwardDelta);
+            const model = gltf.scene;
+            loadedModel = model;
 
-          if (isCollidingLaterally()) {
-            const stepped = tryStepUp();
-            if (!stepped) {
-              controls.object.position.x = previousPosition.x;
-              controls.object.position.z = previousPosition.z;
-              controls.object.position.y = previousPosition.y;
-              velocity.z = 0;
+            const modelBox = new THREE.Box3().setFromObject(model);
+            const modelSize = new THREE.Vector3();
+            modelBox.getSize(modelSize);
+
+            if (modelSize.y > 0) {
+              const scaleFactor = targetModelHeight / modelSize.y;
+              model.scale.setScalar(scaleFactor);
             }
-          }
-        }
 
-        controls.object.position.y += velocity.y * delta;
+            model.updateMatrixWorld(true);
+            modelBox.setFromObject(model);
 
-        if (controls.object.position.y < PLAYER_GROUND_Y) {
-          velocity.y = 0;
-          controls.object.position.y = PLAYER_GROUND_Y;
-        }
-      }
+            const modelCenter = new THREE.Vector3();
+            modelBox.getCenter(modelCenter);
 
-      prevTime = time;
-      renderer.render(scene, camera);
-    });
+            model.position.x -= modelCenter.x;
+            model.position.z -= modelCenter.z;
+            model.position.y -= modelBox.min.y;
+            model.position.add(MODEL_POSITION_OFFSET);
 
-    container.appendChild(renderer.domElement);
-    container.addEventListener("pointerdown", onPointerDown, { passive: true });
-    container.addEventListener("pointermove", onPointerMove, { passive: true });
-    container.addEventListener("pointerup", stopTouchLook, { passive: true });
-    container.addEventListener("pointercancel", stopTouchLook, {
-      passive: true,
-    });
+            scene.add(model);
+            model.updateMatrixWorld(true);
+            obstacleBoxes.length = showLegacyScene ? obstacleBoxes.length : 0;
 
-    const onWindowResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
+            if (ENABLE_MODEL_COLLISIONS) {
+              model.traverse((node) => {
+                if (!node.isMesh) {
+                  return;
+                }
+
+                if (node.geometry) {
+                  const box = new THREE.Box3().setFromObject(node);
+                  if (shouldRegisterObstacle(box)) {
+                    obstacleBoxes.push(box);
+                  }
+                }
+              });
+            }
+
+            setIsModelLoading(false);
+            setModelLoadError(false);
+          },
+          (event) => {
+            if (isDisposed) {
+              return;
+            }
+
+            const nextLoaded = Number(event?.loaded || 0);
+            const nextTotal = Number(event?.total || 0);
+            setLoadedBytes(nextLoaded);
+            setTotalBytes(nextTotal > 0 ? nextTotal : 0);
+          },
+          (error) => {
+            if (isDisposed) {
+              return;
+            }
+
+            const statusCode = Number(error?.target?.status || 0);
+            const isGatewayError = statusCode === 502;
+            const canRetry = retryAttempt < GLB_MAX_RETRIES;
+
+            if (isGatewayError && canRetry) {
+              const nextAttempt = retryAttempt + 1;
+              window.setTimeout(() => {
+                loadWalkableModel(candidateIndex, nextAttempt);
+              }, GLB_RETRY_DELAY_MS * nextAttempt);
+
+              return;
+            }
+
+            if (candidateIndex < sampleGlbCandidates.length - 1) {
+              loadWalkableModel(candidateIndex + 1);
+              return;
+            }
+
+            setIsModelLoading(false);
+            setModelLoadError(true);
+          },
+        );
+      };
+
+      loadWalkableModel();
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: !isTouchDevice,
+        preserveDrawingBuffer: true,
+      });
+      rendererRef.current = renderer;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
-    };
+      renderer.setAnimationLoop(() => {
+        const time = performance.now();
 
-    window.addEventListener("resize", onWindowResize);
+        if (mobileTeleport.active) {
+          const t = Math.min(
+            (time - mobileTeleport.startTime) / mobileTeleport.duration,
+            1,
+          );
+          const eased = t * (2 - t);
+          const nextX = THREE.MathUtils.lerp(
+            mobileTeleport.startX,
+            mobileTeleport.endX,
+            eased,
+          );
+          const nextZ = THREE.MathUtils.lerp(
+            mobileTeleport.startZ,
+            mobileTeleport.endZ,
+            eased,
+          );
+          const currentY = controls.object.position.y;
+
+          if (isPointBlocked(nextX, currentY, nextZ)) {
+            mobileTeleport.active = false;
+          } else {
+            controls.object.position.x = nextX;
+            controls.object.position.z = nextZ;
+            if (t >= 1) {
+              mobileTeleport.active = false;
+            }
+          }
+        }
+
+        if (smoothSlidePose.active) {
+          const t = Math.min(
+            (time - smoothSlidePose.startTime) / smoothSlidePose.duration,
+            1,
+          );
+          const eased = t * (2 - t);
+
+          controls.object.position.lerpVectors(
+            smoothSlidePose.startPosition,
+            smoothSlidePose.endPosition,
+            eased,
+          );
+          camera.quaternion.slerpQuaternions(
+            smoothSlidePose.startQuaternion,
+            smoothSlidePose.endQuaternion,
+            eased,
+          );
+          lookEuler.setFromQuaternion(camera.quaternion);
+
+          if (t >= 1) {
+            smoothSlidePose.active = false;
+          }
+        }
+
+        if (controls.isLocked || touchNavigationStarted) {
+          raycaster.ray.origin.copy(controls.object.position);
+          raycaster.ray.origin.y -= 10;
+
+          const intersections = raycaster.intersectObjects(objects, false);
+          const onObject = intersections.length > 0;
+
+          const delta = (time - prevTime) / 1000;
+
+          velocity.x -= velocity.x * 10.0 * delta;
+          velocity.z -= velocity.z * 10.0 * delta;
+          velocity.y -= 9.8 * 100.0 * delta;
+
+          direction.z = Number(moveForward) - Number(moveBackward);
+          direction.x = Number(moveRight) - Number(moveLeft);
+          direction.normalize();
+
+          if (moveForward || moveBackward) {
+            velocity.z -= direction.z * (400.0 * playerSpeedMultiply) * delta;
+          }
+          if (moveLeft || moveRight) {
+            velocity.x -= direction.x * (400.0 * playerSpeedMultiply) * delta;
+          }
+
+          if (onObject) {
+            velocity.y = Math.max(0, velocity.y);
+          }
+
+          const moveRightDelta = -velocity.x * delta;
+          const moveForwardDelta = -velocity.z * delta;
+
+          if (moveRightDelta !== 0) {
+            previousPosition.copy(controls.object.position);
+            controls.moveRight(moveRightDelta);
+
+            if (isCollidingLaterally()) {
+              const stepped = tryStepUp();
+              if (!stepped) {
+                controls.object.position.x = previousPosition.x;
+                controls.object.position.z = previousPosition.z;
+                controls.object.position.y = previousPosition.y;
+                velocity.x = 0;
+              }
+            }
+          }
+
+          if (moveForwardDelta !== 0) {
+            previousPosition.copy(controls.object.position);
+            controls.moveForward(moveForwardDelta);
+
+            if (isCollidingLaterally()) {
+              const stepped = tryStepUp();
+              if (!stepped) {
+                controls.object.position.x = previousPosition.x;
+                controls.object.position.z = previousPosition.z;
+                controls.object.position.y = previousPosition.y;
+                velocity.z = 0;
+              }
+            }
+          }
+
+          controls.object.position.y += velocity.y * delta;
+
+          if (controls.object.position.y < PLAYER_GROUND_Y) {
+            velocity.y = 0;
+            controls.object.position.y = PLAYER_GROUND_Y;
+          }
+        }
+
+        prevTime = time;
+        renderer.render(scene, camera);
+      });
+
+      container.appendChild(renderer.domElement);
+      container.addEventListener("pointerdown", onPointerDown, {
+        passive: true,
+      });
+      container.addEventListener("pointermove", onPointerMove, {
+        passive: true,
+      });
+      container.addEventListener("pointerup", stopTouchLook, { passive: true });
+      container.addEventListener("pointercancel", stopTouchLook, {
+        passive: true,
+      });
+
+      onWindowResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
+
+      window.addEventListener("resize", onWindowResize);
+    } catch (error) {
+      console.error("Failed to initialize PointerLock controls:", error);
+      setModelLoadError(true);
+      setIsModelLoading(false);
+      return undefined;
+    }
 
     return () => {
       isDisposed = true;
-      window.removeEventListener("resize", onWindowResize);
-      container.removeEventListener("pointerdown", onPointerDown);
-      container.removeEventListener("pointermove", onPointerMove);
-      container.removeEventListener("pointerup", stopTouchLook);
-      container.removeEventListener("pointercancel", stopTouchLook);
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("keyup", onKeyUp);
-      document.removeEventListener("mousemove", onMouseMoveLocked);
-      controls.removeEventListener("lock", onLock);
-      controls.removeEventListener("unlock", onUnlock);
 
-      controls.unlock();
-      renderer.setAnimationLoop(null);
+      // Safely remove event listeners only if elements exist
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", onWindowResize);
+      }
 
-      if (loadedModel) {
+      if (container) {
+        container.removeEventListener("pointerdown", onPointerDown);
+        container.removeEventListener("pointermove", onPointerMove);
+        container.removeEventListener("pointerup", stopTouchLook);
+        container.removeEventListener("pointercancel", stopTouchLook);
+      }
+
+      if (typeof document !== "undefined") {
+        document.removeEventListener("keydown", onKeyDown);
+        document.removeEventListener("keyup", onKeyUp);
+        document.removeEventListener("mousemove", onMouseMoveLocked);
+      }
+
+      if (controls) {
+        controls.removeEventListener("lock", onLock);
+        controls.removeEventListener("unlock", onUnlock);
+        controls.unlock();
+      }
+
+      if (renderer) {
+        renderer.setAnimationLoop(null);
+      }
+
+      if (loadedModel && scene) {
         scene.remove(loadedModel);
       }
 
-      overwriteMaterialController.dispose();
+      if (overwriteMaterialController) {
+        overwriteMaterialController.dispose();
+      }
       overwriteMaterialControllerRef.current = null;
       handleActiveSlideChangeRef.current = () => {};
       pointerLockControlsRef.current = null;
@@ -987,12 +1061,18 @@ function Controls_PointerLock() {
       cameraRef.current = null;
       rendererRef.current = null;
 
-      disposableGeometries.forEach((geometry) => geometry.dispose());
-      disposableMaterials.forEach((material) => material.dispose());
-      renderer.dispose();
+      if (disposableGeometries) {
+        disposableGeometries.forEach((geometry) => geometry.dispose());
+      }
+      if (disposableMaterials) {
+        disposableMaterials.forEach((material) => material.dispose());
+      }
 
-      if (renderer.domElement.parentNode === container) {
-        container.removeChild(renderer.domElement);
+      if (renderer) {
+        renderer.dispose();
+        if (container && renderer.domElement.parentNode === container) {
+          container.removeChild(renderer.domElement);
+        }
       }
     };
   }, []);
@@ -1036,7 +1116,7 @@ function Controls_PointerLock() {
     React.createElement(MenuModal, {
       visible: menuVisible,
       carouselPositions: DEFAULT_POINTERLOCK_CAROUSEL_ITEMS,
-      showCopyButton: true,
+      showCopyButton: false,
       copyMode: "pointer-lock",
       cameraRef,
       pointerLockControlsRef,
@@ -1045,6 +1125,7 @@ function Controls_PointerLock() {
       onActiveSlideChange: handleActiveSlideChange,
       onRequestScreenshot: handleRequestScreenshot,
       onToggleOverwrite: handleToggleOverwrite,
+      controlMode: "pointer-lock",
     }),
   );
 }

@@ -6,6 +6,31 @@ import {
 } from "react-icons/io";
 import CurrentViewPositionPanel from "./CurrentViewPositionPanel";
 
+const CONTROL_INFO_ITEMS = {
+  orbit: {
+    touch: [
+      { icon: "/icons/orbit.svg", label: "Orbit model" },
+      { icon: "/icons/pinch.svg", label: "Pinch to zoom" },
+    ],
+    desktop: [
+      { icon: "/icons/orbit.svg", label: "Orbit model" },
+      { icon: "/icons/mouse-scroll.svg", label: "Wheel mouse to zoom" },
+    ],
+  },
+  "pointer-lock": {
+    touch: [
+      { icon: "⌨️", label: "WASD to move" },
+      { icon: "🖱️", label: "Mouse to view" },
+      { icon: "⎋", label: "Escape to menu" },
+    ],
+    desktop: [
+      { icon: "⌨️", label: "WASD to move" },
+      { icon: "🖱️", label: "Mouse to view" },
+      { icon: "⎋", label: "Escape to menu" },
+    ],
+  },
+};
+
 const toRoundedValue = (value) => Number(Number(value || 0).toFixed(3));
 
 const toNormalizedPosition = (position) => ({
@@ -218,11 +243,14 @@ const MenuModal = ({
   onRequestScreenshot,
   onActiveSlideChange,
   onToggleOverwrite,
+  controlMode = "orbit",
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isVisibleInternal, setIsVisibleInternal] = useState(true);
   const [isPanelMounted, setIsPanelMounted] = useState(Boolean(visible));
   const [isPanelOpen, setIsPanelOpen] = useState(Boolean(visible));
+  const [showInfo, setShowInfo] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const closeAnimationTimeoutRef = useRef(null);
 
   const isControlled = typeof visible === "boolean";
@@ -232,6 +260,30 @@ const MenuModal = ({
       ? carouselPositions
       : PREVIEW_SLIDES;
   const slides = useMemo(() => normalizeCarouselSlides(rawSlides), [rawSlides]);
+
+  // Detectar dispositivo táctil
+  useEffect(() => {
+    const checkTouchDevice = () => {
+      const hasTouch =
+        window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0;
+
+      setIsTouchDevice(hasTouch);
+    };
+
+    checkTouchDevice();
+    window.addEventListener("orientationchange", checkTouchDevice);
+    return () =>
+      window.removeEventListener("orientationchange", checkTouchDevice);
+  }, []);
+
+  // Resolver items de información basado en tipo de dispositivo
+  const currentInfoItems = useMemo(() => {
+    const mode = CONTROL_INFO_ITEMS[controlMode];
+    if (!mode) return [];
+    return isTouchDevice ? mode.touch : mode.desktop;
+  }, [controlMode, isTouchDevice]);
 
   const activeSlide = useMemo(
     () => slides[activeIndex] ?? slides[0],
@@ -385,7 +437,7 @@ const MenuModal = ({
         }`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center bg-white/95 px-2 py-2 sm:grid-cols-[3rem_minmax(0,1fr)_3rem] sm:px-3">
+        <div className="grid w-full grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-2 bg-white/95 px-2 py-2 sm:grid-cols-[5rem_minmax(0,1fr)_5rem] sm:gap-3 sm:px-3">
           <button
             type="button"
             onClick={showPrevious}
@@ -411,27 +463,80 @@ const MenuModal = ({
           </button>
         </div>
 
-        <div className="w-full bg-white px-3 pb-3 pt-2 text-xs leading-5 text-black/85 sm:px-4 sm:pb-4 sm:text-sm sm:leading-6">
-          <div className="flex items-start justify-between gap-3 sm:items-center">
-            <p className="min-w-0 flex-1 break-words font-semibold tracking-wide">
-              Unit A-1204 · 3 rooms
-            </p>
-            <CurrentViewPositionPanel
-              showCopyButton={showCopyButton}
-              copyMode={copyMode}
-              cameraRef={cameraRef}
-              orbitControlsRef={orbitControlsRef}
-              pointerLockControlsRef={pointerLockControlsRef}
-              activeSlideTitle={activeSlide?.title}
-              currentPlayerSlide={currentPlayerSlide}
-              overwriteEnabled={overwriteEnabled}
-              onRequestScreenshot={handleRequestScreenshot}
-              onToggleOverwrite={onToggleOverwrite}
-            />
+        <div className="relative w-full overflow-hidden bg-white">
+          {/* Switch 1: Control View */}
+          <div
+            className={`w-full bg-white px-3 pb-3 pt-2 text-xs leading-5 text-black/85 transition-transform duration-300 sm:px-4 sm:pb-4 sm:text-sm sm:leading-6 ${
+              showInfo ? "-translate-x-full" : "translate-x-0"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3 sm:items-center">
+              <p className="min-w-0 flex-1 break-words font-semibold tracking-wide">
+                Unit A-1204 · 3 rooms
+              </p>
+              <CurrentViewPositionPanel
+                showCopyButton={showCopyButton}
+                copyMode={copyMode}
+                cameraRef={cameraRef}
+                orbitControlsRef={orbitControlsRef}
+                pointerLockControlsRef={pointerLockControlsRef}
+                activeSlideTitle={activeSlide?.title}
+                currentPlayerSlide={currentPlayerSlide}
+                overwriteEnabled={overwriteEnabled}
+                onRequestScreenshot={handleRequestScreenshot}
+                onToggleOverwrite={onToggleOverwrite}
+                onToggleInfo={() => setShowInfo(true)}
+              />
+            </div>
+            <p>68 m²· 2 rooms · 1 bathroom</p>
+            <p>Living · Kitchen with bar</p>
+            <p>Estimated delivery: Q4 2026 · Northeast orientation</p>
           </div>
-          <p>68 m²· 2 rooms · 1 bathroom</p>
-          <p>Living · Kitchen with bar</p>
-          <p>Estimated delivery: Q4 2026 · Northeast orientation</p>
+
+          {/* Switch 2: Info View */}
+          <div
+            className={`absolute inset-y-0 left-0 w-full bg-white px-3 pb-3 pt-2 text-xs leading-5 text-black/85 transition-transform duration-300 sm:px-4 sm:pb-4 sm:text-sm sm:leading-6 ${
+              showInfo ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setShowInfo(false)}
+              className="mb-3 inline-flex items-center gap-2 text-xs font-semibold text-black/55 transition-colors hover:text-black/75 sm:text-sm"
+              aria-label="Back to controls"
+            >
+              ← Back
+            </button>
+            <div
+              className={`grid w-full gap-3 ${
+                controlMode === "pointer-lock" ? "grid-cols-3" : "grid-cols-2"
+              }`}
+            >
+              {currentInfoItems.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col items-center gap-2 text-center"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg text-xl sm:h-14 sm:w-14 sm:text-2xl">
+                    {typeof item.icon === "string" &&
+                    item.icon.startsWith("/") ? (
+                      <img
+                        src={item.icon}
+                        alt={item.label}
+                        className="h-10 w-10 object-contain sm:h-12 sm:w-12"
+                        draggable={false}
+                      />
+                    ) : (
+                      <span>{item.icon}</span>
+                    )}
+                  </div>
+                  <p className="text-xs font-medium text-black/70 sm:text-sm">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

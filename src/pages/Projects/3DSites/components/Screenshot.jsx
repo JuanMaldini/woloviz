@@ -103,9 +103,9 @@ const Screenshot = ({ onCapture, disabled = false }) => {
       disabled={disabled}
       aria-label="Take screenshot"
       title="Screenshot"
-      className="inline-flex h-8 w-8 items-center justify-center rounded border border-black/35 bg-white text-black/85 shadow-sm transition-colors hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-8 w-8 items-center justify-center rounded border border-black/15 bg-white text-black/55 transition-colors hover:bg-black/[0.04] hover:text-black/75 disabled:pointer-events-none disabled:opacity-30 sm:h-10 sm:w-10"
     >
-      <BsCamera className="h-4 w-4" />
+      <BsCamera className="h-4 w-4 sm:h-5 sm:w-5" />
     </button>
   );
 };
