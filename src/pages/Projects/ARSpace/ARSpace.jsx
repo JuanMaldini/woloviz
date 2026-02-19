@@ -22,13 +22,9 @@ const ARSpace = () => {
       const loaderUrl = `${buildUrl}/App.loader.js`;
 
       const config = {
-        dataUrl: `${buildUrl}/App.data.br`,
-        frameworkUrl: `${buildUrl}/App.framework.js.br`,
-        codeUrl: `${buildUrl}/App.wasm.br`,
-        streamingAssetsUrl: "/App/StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "MXWoloviz",
-        productVersion: "1.0.0",
+        dataUrl: `${buildUrl}/App.data.gz`,
+        frameworkUrl: `${buildUrl}/App.framework.js.gz`,
+        codeUrl: `${buildUrl}/App.wasm.gz`,
         matchWebGLToCanvasSize: true,
       };
 
