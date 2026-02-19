@@ -3,6 +3,7 @@ import { Unity, useUnityContext } from "react-unity-webgl";
 
 const ARSpace = () => {
   const [isLikelyStalled, setIsLikelyStalled] = useState(false);
+  const [diagnosticLogs, setDiagnosticLogs] = useState([]);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const {
@@ -20,6 +21,87 @@ const ARSpace = () => {
   });
 
   const loadingProgress = Math.round(loadingProgression * 100);
+
+  const appendLog = (message) => {
+    setDiagnosticLogs((previousLogs) => {
+      const timestamp = new Date().toLocaleTimeString();
+      const nextLogs = [...previousLogs, `[${timestamp}] ${message}`];
+      return nextLogs.slice(-12);
+    });
+  };
+
+  useEffect(() => {
+    appendLog(
+      `Init mobile=${isMobile} dpr=${isMobile ? 1 : window.devicePixelRatio || 1}`,
+    );
+  }, [isMobile]);
+
+  useEffect(() => {
+    const milestones = new Set([5, 25, 50, 75, 90, 95, 99, 100]);
+    if (milestones.has(loadingProgress)) {
+      appendLog(`Progress ${loadingProgress}%`);
+    }
+  }, [loadingProgress]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      appendLog("Unity loaded successfully");
+    }
+  }, [isLoaded]);
+
+  useEffect(() => {
+    if (initializationError?.message) {
+      appendLog(`Init error: ${initializationError.message}`);
+    }
+  }, [initializationError]);
+
+  useEffect(() => {
+    const assetUrls = [
+      "/App/Build/App.loader.js",
+      "/App/Build/App.framework.js.gz",
+      "/App/Build/App.wasm.gz",
+      "/App/Build/App.data.gz",
+    ];
+
+    let isMounted = true;
+
+    const checkAssets = async () => {
+      for (const assetUrl of assetUrls) {
+        try {
+          const response = await fetch(assetUrl, {
+            method: "HEAD",
+            cache: "no-store",
+          });
+          if (!isMounted) {
+            return;
+          }
+
+          const status = response.status;
+          const contentType = response.headers.get("content-type") || "-";
+          const contentEncoding =
+            response.headers.get("content-encoding") || "-";
+          const contentLength = response.headers.get("content-length") || "-";
+          appendLog(
+            `${assetUrl} -> ${status} | type=${contentType} | enc=${contentEncoding} | len=${contentLength}`,
+          );
+        } catch (error) {
+          if (!isMounted) {
+            return;
+          }
+
+          const normalizedError =
+            error instanceof Error ? error.message : String(error);
+          appendLog(`${assetUrl} -> network error: ${normalizedError}`);
+        }
+      }
+    };
+
+    checkAssets();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoaded || initializationError || loadingProgress < 90) {
@@ -62,10 +144,19 @@ const ARSpace = () => {
               </div>
               {isLikelyStalled && (
                 <div className="mt-2 text-center text-xs text-amber-300">
-                  Carga móvil pesada detectada. Cierra otras apps/pestañas y
-                  reintenta.
+                  Carga estancada cerca del 90%. Revisa los logs de diagnóstico
+                  debajo.
                 </div>
               )}
+              <div className="mt-3 max-h-40 overflow-auto rounded border border-gray-700 bg-black/40 p-2 text-[11px] text-emerald-300">
+                {diagnosticLogs.length === 0 ? (
+                  <div>Esperando logs...</div>
+                ) : (
+                  diagnosticLogs.map((logLine, index) => (
+                    <div key={`${index}-${logLine}`}>{logLine}</div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -79,6 +170,15 @@ const ARSpace = () => {
               </div>
               <div className="text-sm text-red-300">
                 {initializationError.message}
+              </div>
+              <div className="mt-3 max-h-40 overflow-auto rounded border border-red-800 bg-black/40 p-2 text-left text-[11px] text-rose-200">
+                {diagnosticLogs.length === 0 ? (
+                  <div>Esperando logs...</div>
+                ) : (
+                  diagnosticLogs.map((logLine, index) => (
+                    <div key={`${index}-${logLine}`}>{logLine}</div>
+                  ))
+                )}
               </div>
             </div>
           </div>
