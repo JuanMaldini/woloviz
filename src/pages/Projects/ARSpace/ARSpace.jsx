@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
 import { Unity, useUnityContext } from "react-unity-webgl";
 
 const ARSpace = () => {
+  const [isLikelyStalled, setIsLikelyStalled] = useState(false);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const {
     unityProvider,
     loadingProgression,
@@ -12,9 +16,23 @@ const ARSpace = () => {
     dataUrl: "/App/Build/App.data.gz",
     frameworkUrl: "/App/Build/App.framework.js.gz",
     codeUrl: "/App/Build/App.wasm.gz",
+    devicePixelRatio: isMobile ? 1 : window.devicePixelRatio || 1,
   });
 
   const loadingProgress = Math.round(loadingProgression * 100);
+
+  useEffect(() => {
+    if (isLoaded || initializationError || loadingProgress < 90) {
+      setIsLikelyStalled(false);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setIsLikelyStalled(true);
+    }, 12000);
+
+    return () => clearTimeout(timer);
+  }, [isLoaded, initializationError, loadingProgress]);
 
   return (
     <div className="flex min-h-full w-full flex-1 flex-col bg-gray-900">
@@ -42,6 +60,12 @@ const ARSpace = () => {
               <div className="mt-2 text-center text-xs text-gray-400">
                 {loadingProgress}%
               </div>
+              {isLikelyStalled && (
+                <div className="mt-2 text-center text-xs text-amber-300">
+                  Carga móvil pesada detectada. Cierra otras apps/pestañas y
+                  reintenta.
+                </div>
+              )}
             </div>
           </div>
         )}
