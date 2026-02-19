@@ -1,43 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-const COMPRESSION_SUFFIXES = [".gz", ".br", ""];
-
-const isHtmlResponse = (contentType) =>
-  typeof contentType === "string" && contentType.toLowerCase().includes("text/html");
-
-const probeUnityFramework = async (buildUrl, suffix) => {
-  const frameworkUrl = `${buildUrl}/App.framework.js${suffix}`;
-
-  try {
-    const response = await fetch(frameworkUrl, {
-      method: "HEAD",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const contentType = response.headers.get("content-type");
-    return !isHtmlResponse(contentType);
-  } catch {
-    return false;
-  }
-};
-
-const resolveUnityCompressionSuffix = async (buildUrl) => {
-  for (const suffix of COMPRESSION_SUFFIXES) {
-    const exists = await probeUnityFramework(buildUrl, suffix);
-    if (exists) {
-      return suffix;
-    }
-  }
-
-  throw new Error(
-    "Unity Build no se encontró o está siendo reescrito como HTML. Verifica /App/Build y headers de compresión en el servidor.",
-  );
-};
-
 const ARSpace = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -49,23 +11,24 @@ const ARSpace = () => {
     let script = null;
     let isMounted = true;
 
-    const initUnity = async () => {
+    const initUnity = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
+      // Detect mobile
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const buildUrl = "/App/Build";
       const loaderUrl = `${buildUrl}/App.loader.js`;
-      const compressionSuffix = await resolveUnityCompressionSuffix(buildUrl);
 
       const config = {
-        dataUrl: `${buildUrl}/App.data${compressionSuffix}`,
-        frameworkUrl: `${buildUrl}/App.framework.js${compressionSuffix}`,
-        codeUrl: `${buildUrl}/App.wasm${compressionSuffix}`,
+        dataUrl: `${buildUrl}/App.data.gz`,
+        frameworkUrl: `${buildUrl}/App.framework.js.gz`,
+        codeUrl: `${buildUrl}/App.wasm.gz`,
         matchWebGLToCanvasSize: true,
       };
 
+      // Adjust for mobile if needed
       if (isMobile) {
         config.devicePixelRatio = window.devicePixelRatio || 1;
       }
@@ -74,47 +37,50 @@ const ARSpace = () => {
       script.src = loaderUrl;
       script.async = true;
 
-      const scriptReady = new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-      });
+      script.onload = () => {
+        if (!isMounted) return;
+
+        // createUnityInstance is added to window by the loader script
+        if (typeof window.createUnityInstance === "function") {
+          window
+            .createUnityInstance(canvas, config, (progress) => {
+              if (isMounted) {
+                setLoadingProgress(Math.round(progress * 100));
+              }
+            })
+            .then((unityInstance) => {
+              if (isMounted) {
+                unityInstanceRef.current = unityInstance;
+                setIsLoaded(true);
+                setLoadingProgress(100);
+              } else {
+                // Component unmounted before load completed
+                unityInstance.Quit();
+              }
+            })
+            .catch((message) => {
+              if (isMounted) {
+                console.error("Unity loader error:", message);
+                setError(message);
+              }
+            });
+        } else {
+          if (isMounted) {
+            setError("Unity loader not available");
+          }
+        }
+      };
+
+      script.onerror = () => {
+        if (isMounted) {
+          setError("Failed to load Unity loader script");
+        }
+      };
 
       document.body.appendChild(script);
-
-      await scriptReady;
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (typeof window.createUnityInstance !== "function") {
-        throw new Error("Unity loader no disponible");
-      }
-
-      const unityInstance = await window.createUnityInstance(canvas, config, (progress) => {
-        if (isMounted) {
-          setLoadingProgress(Math.round(progress * 100));
-        }
-      });
-
-      if (isMounted) {
-        unityInstanceRef.current = unityInstance;
-        setIsLoaded(true);
-        setLoadingProgress(100);
-        return;
-      }
-
-      await unityInstance.Quit();
     };
 
-    initUnity().catch((message) => {
-      if (isMounted) {
-        console.error("Unity loader error:", message);
-        const normalizedMessage =
-          message instanceof Error ? message.message : String(message);
-        setError(normalizedMessage);
-      }
-    });
+    initUnity();
 
     return () => {
       isMounted = false;
