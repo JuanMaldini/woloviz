@@ -18,40 +18,7 @@ import Playground from "../pages/Projects/Tours/playground/playground";
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
-import MenuModal from "../pages/Projects/3DSites/components/menu-modal";
-
-const MENU_MODAL_MOCK_POSITIONS = [
-  {
-    title: "Fachada contemporánea",
-    position: { x: 40, y: 20, z: 65 },
-    direction: { x: -0.52, y: -0.24, z: -0.82 },
-    id: JSON.stringify({
-      title: "Fachada contemporánea",
-      position: { x: 40, y: 20, z: 65 },
-      direction: { x: -0.52, y: -0.24, z: -0.82 },
-    }),
-  },
-  {
-    title: "Minimalist interior",
-    position: { x: 75, y: 16, z: 20 },
-    direction: { x: -0.91, y: -0.18, z: -0.36 },
-    id: JSON.stringify({
-      title: "Minimalist interior",
-      position: { x: 75, y: 16, z: 20 },
-      direction: { x: -0.91, y: -0.18, z: -0.36 },
-    }),
-  },
-  {
-    title: "Project lobby",
-    position: { x: -20, y: 14, z: 70 },
-    direction: { x: 0.27, y: -0.15, z: -0.95 },
-    id: JSON.stringify({
-      title: "Project lobby",
-      position: { x: -20, y: 14, z: 70 },
-      direction: { x: 0.27, y: -0.15, z: -0.95 },
-    }),
-  },
-];
+import ARSpace from "../pages/Projects/ARSpace/ARSpace";
 
 const AppRoutes = () => {
   return (
@@ -68,14 +35,7 @@ const AppRoutes = () => {
 
       {/*INTERACTIVA APP*/}
       <Route path="/projects" element={<Projects />} />
-      <Route
-        path="/samplesvg"
-        element={
-          <ProtectedRoute>
-            <SegVialGremio />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio /></ProtectedRoute>}/>
 
       {/*TOUR*/}
       <Route path="/sample-ai" element={<SampleAI />} />
@@ -85,19 +45,8 @@ const AppRoutes = () => {
       <Route path="/controls_orbit" element={<Controls_Orbit />} />
       <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
 
-      {/*MODAL*/}
-      <Route
-        path="/menu-modal"
-        element={
-          <MenuModal
-            carouselPositions={MENU_MODAL_MOCK_POSITIONS}
-            currentPose={{
-              position: MENU_MODAL_MOCK_POSITIONS[0].position,
-              lookDirection: MENU_MODAL_MOCK_POSITIONS[0].direction,
-            }}
-          />
-        }
-      />
+      {/*AR SPACE*/}
+      <Route path="/ar_furniture" element={<ARSpace />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

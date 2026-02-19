@@ -15,7 +15,7 @@ const CONTROL_INFO_ITEMS = {
     ],
     desktop: [
       { icon: "/icons/orbit.svg", label: "Orbit model" },
-      { icon: "/icons/mouse-move.svg", label: "Click and drag to orbit" },
+      { icon: "/icons/mouse-scroll.svg", label: "Wheel mouse to zoom" },
     ],
   },
   "pointer-lock": {
@@ -24,9 +24,9 @@ const CONTROL_INFO_ITEMS = {
       { icon: "/icons/touch.png", label: "Drag screen" },
     ],
     desktop: [
-      { icon: "/icons/wasd.png", label: "WASD to move" },
-      { icon: "/icons/mouse-move.svg", label: "Mouse to view" },
-      { icon: "/icons/escape.png", label: "Escape to menu" },
+      { icon: "⌨️", label: "WASD to move" },
+      { icon: "🖱️", label: "Mouse to view" },
+      { icon: "⎋", label: "Escape to menu" },
     ],
   },
 };
@@ -315,7 +315,6 @@ const MenuModal = ({
     }
 
     if (isVisible) {
-      setShowInfo(false);
       setIsPanelMounted(true);
       requestAnimationFrame(() => {
         setIsPanelOpen(true);
