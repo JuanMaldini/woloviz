@@ -172,13 +172,11 @@ function Controls_Orbit() {
       window.matchMedia("(pointer: coarse)").matches ||
       navigator.maxTouchPoints > 0;
     const renderer = new THREE.WebGLRenderer({
-      antialias: !isTouchDevice,
+      antialias: true,
       preserveDrawingBuffer: true,
     });
     rendererRef.current = renderer;
-    renderer.setPixelRatio(
-      isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2),
-    );
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 

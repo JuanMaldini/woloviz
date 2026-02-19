@@ -883,13 +883,11 @@ function Controls_PointerLock() {
       loadWalkableModel();
 
       renderer = new THREE.WebGLRenderer({
-        antialias: !isTouchDevice,
+        antialias: true,
         preserveDrawingBuffer: true,
       });
       rendererRef.current = renderer;
-      renderer.setPixelRatio(
-        isTouchDevice ? 1 : Math.min(window.devicePixelRatio, 2),
-      );
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(viewportWidth, viewportHeight);
       renderer.setAnimationLoop(() => {
         const time = performance.now();
