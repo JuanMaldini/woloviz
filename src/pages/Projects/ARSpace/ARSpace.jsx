@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 const COMPRESSION_SUFFIXES = [".gz", ".br", ""];
 
 const isHtmlResponse = (contentType) =>
-  typeof contentType === "string" && contentType.toLowerCase().includes("text/html");
+  typeof contentType === "string" &&
+  contentType.toLowerCase().includes("text/html");
 
 const probeUnityFramework = async (buildUrl, suffix) => {
   const frameworkUrl = `${buildUrl}/App.framework.js${suffix}`;
@@ -91,11 +92,15 @@ const ARSpace = () => {
         throw new Error("Unity loader no disponible");
       }
 
-      const unityInstance = await window.createUnityInstance(canvas, config, (progress) => {
-        if (isMounted) {
-          setLoadingProgress(Math.round(progress * 100));
-        }
-      });
+      const unityInstance = await window.createUnityInstance(
+        canvas,
+        config,
+        (progress) => {
+          if (isMounted) {
+            setLoadingProgress(Math.round(progress * 100));
+          }
+        },
+      );
 
       if (isMounted) {
         unityInstanceRef.current = unityInstance;
