@@ -4,49 +4,49 @@
   "framework": "vite",
   "headers": [
     {
-      "source": "/App/Build/App.framework.js.gz",
+      "source": "/unity/Build/unity.framework.js.unityweb",
       "headers": [
-        {
-          "key": "Content-Encoding",
-          "value": "gzip"
-        },
         {
           "key": "Content-Type",
           "value": "application/javascript"
+        },
+        {
+          "key": "Content-Encoding",
+          "value": "br"
         }
       ]
     },
     {
-      "source": "/App/Build/App.wasm.gz",
+      "source": "/unity/Build/unity.wasm.unityweb",
       "headers": [
-        {
-          "key": "Content-Encoding",
-          "value": "gzip"
-        },
         {
           "key": "Content-Type",
           "value": "application/wasm"
+        },
+        {
+          "key": "Content-Encoding",
+          "value": "br"
         }
       ]
     },
     {
-      "source": "/App/Build/App.data.gz",
+      "source": "/unity/Build/unity.data.unityweb",
       "headers": [
-        {
-          "key": "Content-Encoding",
-          "value": "gzip"
-        },
         {
           "key": "Content-Type",
           "value": "application/octet-stream"
+        },
+        {
+          "key": "Content-Encoding",
+          "value": "br"
         }
       ]
     }
   ],
   "rewrites": [
     {
-      "source": "/App/:path*",
-      "destination": "/App/:path*"
+      "source": "/unity/:path*",
+      "destination": "/unity/:path*"
     },
     {
       "source": "/(.*)",
