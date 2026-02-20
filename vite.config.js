@@ -67,6 +67,6 @@ const playgroundDataWriterPlugin = {
 export default defineConfig({
   plugins: [react(), playgroundDataWriterPlugin],
   build: {
-    emptyOutDir: false,
+    emptyOutDir: true,
   },
 });
