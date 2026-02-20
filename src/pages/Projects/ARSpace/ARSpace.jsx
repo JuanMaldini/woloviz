@@ -3,15 +3,14 @@ import { Unity, useUnityContext } from "react-unity-webgl";
 
 const ARSpace = () => {
   const { unityProvider, loadingProgression, isLoaded } = useUnityContext({
-    loaderUrl: "/unity/Build/unity.loader.js",
-    dataUrl: "/unity/Build/unity.data.unityweb",
-    frameworkUrl: "/unity/Build/unity.framework.js.unityweb",
-    codeUrl: "/unity/Build/unity.wasm.unityweb",
+    loaderUrl: "unity/unity.loader.js",
+    dataUrl: "unity/unity.data.unityweb",
+    frameworkUrl: "unity/unity.framework.js.unityweb",
+    codeUrl: "unity/unity.wasm.unityweb",
   });
 
-
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col items-center justify-center bg-gray-100">
+    <Fragment>
       {!isLoaded && (
         <p>Loading Application... {Math.round(loadingProgression * 100)}%</p>
       )}
@@ -19,8 +18,8 @@ const ARSpace = () => {
         unityProvider={unityProvider}
         style={{ visibility: isLoaded ? "visible" : "hidden" }}
       />
-    </div>
+    </Fragment>
   );
-};
+}
 
 export default ARSpace;
