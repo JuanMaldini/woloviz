@@ -1,44 +1,5 @@
 {
   "buildCommand": "bash scripts/release && npm run web:build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "headers": [
-    {
-      "source": "/unity/Build/unity.framework.js.unityweb",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/octet-stream"
-        }
-      ]
-    },
-    {
-      "source": "/unity/Build/unity.wasm.unityweb",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/octet-stream"
-        }
-      ]
-    },
-    {
-      "source": "/unity/Build/unity.data.unityweb",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/octet-stream"
-        }
-      ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/unity/:path*",
-      "destination": "/unity/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "framework": "vite"
 }
