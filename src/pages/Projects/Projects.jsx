@@ -53,7 +53,7 @@ const Projects = () => (
         </div>
       </div>
 
-      {/* <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
         <div className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
           AR Space
         </div>
@@ -62,10 +62,10 @@ const Projects = () => (
             to="/ar_furniture"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
-            AR Furniture
+            Example
           </Link>
         </div>
-      </div> */}
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
         <div className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">

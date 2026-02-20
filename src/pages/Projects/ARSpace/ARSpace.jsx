@@ -1,22 +1,20 @@
 import React from "react";
-import { Unity, useUnityContext } from "react-unity-webgl";
+import "@google/model-viewer";
 
 const ARSpace = () => {
-  const { unityProvider, loadingProgression, isLoaded } = useUnityContext({
-    loaderUrl: "/unity/Build/unity.loader.js",
-    dataUrl: "/unity/Build/unity.data.unityweb",
-    frameworkUrl: "/unity/Build/unity.framework.js.unityweb",
-    codeUrl: "/unity/Build/unity.wasm.unityweb",
-  });
-
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col items-center justify-center bg-gray-100">
-      {!isLoaded && (
-        <p>Loading Application... {Math.round(loadingProgression * 100)}%</p>
-      )}
-      <Unity
-        unityProvider={unityProvider}
-        style={{ visibility: isLoaded ? "visible" : "hidden" }}
+    <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100">
+      <model-viewer
+        src="/projects/Noiseless/noiseless.glb"
+        // src="/projects/Noiseless/art_deco_table_fan__dominion_5759.glb"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        camera-controls
+        style={{
+          width: "100%",
+          height: "100%",
+          backgroundColor: "transparent",
+        }}
       />
     </div>
   );
