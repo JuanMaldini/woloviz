@@ -14,8 +14,9 @@ function App() {
     "/playground",
     "/controls_orbit",
     "/controls_pointerlock",
-    "/ar_model",
-    "/ar_interior",
+    "/ar_chair_01",
+    "/ar_chair_02",
+    "/ar_pantry",
   ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;

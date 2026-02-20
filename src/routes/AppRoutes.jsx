@@ -18,8 +18,9 @@ import Playground from "../pages/Projects/Tours/playground/playground";
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
-import ARModel from "../pages/Projects/ARSpace/ARModel";
-import ARInterior from "../pages/Projects/ARSpace/ARInterior";
+import AR_Chair_01 from "../pages/Projects/ARSpace/AR_Chair_01";
+import AR_Chair_02 from "../pages/Projects/ARSpace/AR_Chair_02";
+import AR_Pantry from "../pages/Projects/ARSpace/AR_Pantry";
 
 const AppRoutes = () => {
   return (
@@ -47,8 +48,9 @@ const AppRoutes = () => {
       <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
 
       {/*AR SPACE*/}
-      <Route path="/ar_model" element={<ARModel />} />
-      <Route path="/ar_interior" element={<ARInterior />} />
+      <Route path="/ar_chair_01" element={<AR_Chair_01 />} />
+      <Route path="/ar_chair_02" element={<AR_Chair_02 />} />
+      <Route path="/ar_pantry" element={<AR_Pantry />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

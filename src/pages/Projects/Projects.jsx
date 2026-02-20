@@ -59,16 +59,22 @@ const Projects = () => (
         </div>
         <div className="flex flex-col gap-1">
           <Link
-            to="/ar_model"
+            to="/ar_chair_01"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
-            Model
+            Chair 01
           </Link>
           <Link
-            to="/ar_interior"
+            to="/ar_chair_02"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
-            Interior
+            Chair 02
+          </Link>
+          <Link
+            to="/ar_pantry"
+            className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
+          >
+            Pantry
           </Link>
         </div>
       </div>
