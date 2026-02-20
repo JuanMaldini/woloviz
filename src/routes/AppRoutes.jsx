@@ -19,7 +19,7 @@ import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
 import ARModel from "../pages/Projects/ARSpace/ARModel";
-import ARInterior from "../pages/Projects/ARSpace/ARModel";
+import ARInterior from "../pages/Projects/ARSpace/ARInterior";
 
 const AppRoutes = () => {
   return (
@@ -36,7 +36,14 @@ const AppRoutes = () => {
 
       {/*INTERACTIVA APP*/}
       <Route path="/projects" element={<Projects />} />
-      <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio /></ProtectedRoute>}/>
+      <Route
+        path="/samplesvg"
+        element={
+          <ProtectedRoute>
+            <SegVialGremio />
+          </ProtectedRoute>
+        }
+      />
 
       {/*TOUR*/}
       <Route path="/sample-ai" element={<SampleAI />} />
