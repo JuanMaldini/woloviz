@@ -18,7 +18,8 @@ import Playground from "../pages/Projects/Tours/playground/playground";
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
-import ARSpace from "../pages/Projects/ARSpace/ARSpace";
+import ARModel from "../pages/Projects/ARSpace/ARModel";
+import ARInterior from "../pages/Projects/ARSpace/ARModel";
 
 const AppRoutes = () => {
   return (
@@ -46,7 +47,8 @@ const AppRoutes = () => {
       <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
 
       {/*AR SPACE*/}
-      <Route path="/ar_furniture" element={<ARSpace />} />
+      <Route path="/ar_model" element={<ARModel />} />
+      <Route path="/ar_interior" element={<ARInterior />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -1,14 +1,16 @@
 import React from "react";
 import "@google/model-viewer";
 
-const ARSpace = () => {
+const LAMP_GLB_URL =
+  "/projects/Noiseless/art_deco_table_fan__dominion_5759.glb";
+
+const ARModel = () => {
   return (
     <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100">
       <model-viewer
-        src="/projects/Noiseless/noiseless.glb"
-        // src="/projects/Noiseless/art_deco_table_fan__dominion_5759.glb"
+        src={LAMP_GLB_URL}
         ar
-        ar-modes="webxr scene-viewer quick-look"
+        ar-modes="webxr quick-look scene-viewer"
         camera-controls
         style={{
           width: "100%",
@@ -20,4 +22,4 @@ const ARSpace = () => {
   );
 };
 
-export default ARSpace;
+export default ARModel;
