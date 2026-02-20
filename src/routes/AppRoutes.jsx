@@ -36,14 +36,7 @@ const AppRoutes = () => {
 
       {/*INTERACTIVA APP*/}
       <Route path="/projects" element={<Projects />} />
-      <Route
-        path="/samplesvg"
-        element={
-          <ProtectedRoute>
-            <SegVialGremio />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio/></ProtectedRoute>}/>
 
       {/*TOUR*/}
       <Route path="/sample-ai" element={<SampleAI />} />
