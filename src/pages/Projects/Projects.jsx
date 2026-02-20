@@ -81,6 +81,20 @@ const Projects = () => (
 
       <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
         <div className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+          AR Marker
+        </div>
+        <div className="flex flex-col gap-1">
+          <Link
+            to="/ar_marker_01"
+            className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
+          >
+            Marker 01
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <div className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
           Realtime App
         </div>
         <div className="flex flex-col gap-1">

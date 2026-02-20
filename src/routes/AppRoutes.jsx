@@ -22,6 +22,8 @@ import AR_Chair_01 from "../pages/Projects/ARSpace/AR_Chair_01";
 import AR_Chair_02 from "../pages/Projects/ARSpace/AR_Chair_02";
 import AR_Pantry from "../pages/Projects/ARSpace/AR_Pantry";
 
+import ARMarker01 from "../pages/Projects/ARMarker/ARMarker01";
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -51,6 +53,9 @@ const AppRoutes = () => {
       <Route path="/ar_chair_01" element={<AR_Chair_01 />} />
       <Route path="/ar_chair_02" element={<AR_Chair_02 />} />
       <Route path="/ar_pantry" element={<AR_Pantry />} />
+
+      {/*AR MARKER*/}
+      <Route path="/ar_marker_01" element={<ARMarker01 />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
