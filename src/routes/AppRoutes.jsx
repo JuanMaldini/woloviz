@@ -19,8 +19,9 @@ import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
 import AR_Chair_01 from "../pages/Projects/ARSpace/AR_Chair_01";
-import AR_Chair_02 from "../pages/Projects/ARSpace/AR_Chair_02";
 import AR_Pantry from "../pages/Projects/ARSpace/AR_Pantry";
+
+import ART_example from "../pages/Projects/ARTraking/ART_example";
 
 const AppRoutes = () => {
   return (
@@ -49,10 +50,12 @@ const AppRoutes = () => {
 
       {/*AR SPACE*/}
       <Route path="/ar_chair_01" element={<AR_Chair_01 />} />
-      <Route path="/ar_chair_02" element={<AR_Chair_02 />} />
       <Route path="/ar_pantry" element={<AR_Pantry />} />
 
+      {/*AR TRACKING*/}
+      <Route path="/art_example" element={<ART_example />} />
 
+      {/*NOT FOUND*/}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
