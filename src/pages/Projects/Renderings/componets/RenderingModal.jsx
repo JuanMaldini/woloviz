@@ -94,7 +94,6 @@ const RenderingModal = ({ open, item, onClose }) => {
                 className="relative flex w-full items-center justify-center overflow-hidden bg-white"
                 style={{
                   maxHeight: `calc(100dvh - ${topOffset + 220}px)`,
-                  touchAction: "auto",
                   userSelect: "none",
                 }}
               >
@@ -103,11 +102,9 @@ const RenderingModal = ({ open, item, onClose }) => {
                   alt={item.title}
                   className="block h-auto w-full max-w-full select-none object-contain"
                   draggable={false}
-                  onDragStart={(event) => event.preventDefault()}
                   style={{
                     maxHeight: `calc(100dvh - ${topOffset + 220}px)`,
                     userSelect: "none",
-                    WebkitUserDrag: "none",
                   }}
                   loading="eager"
                 />

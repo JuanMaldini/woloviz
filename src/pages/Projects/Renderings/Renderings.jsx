@@ -73,7 +73,7 @@ const Renderings = () => {
               key={`${item.title}-${item.url}`}
               type="button"
               onClick={() => setSelectedRendering(item)}
-              className="group flex flex-col items-start border border-slate-200/80 bg-white text-left shadow-sm will-change-transform transition-[transform,border-color,box-shadow] ease-out hover:scale-[1.012] hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
+              className="group flex flex-col items-start border border-slate-200/80 bg-white text-left shadow-sm transition-[border-color,box-shadow] ease-out hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
               style={{ transitionDuration: "2400ms" }}
             >
               <img
