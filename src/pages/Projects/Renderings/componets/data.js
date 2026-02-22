@@ -21,8 +21,8 @@ export const renderingsData = [
     bCanZoom: true,
   },
   {
-    title: "Glass Office Building",
-    description:"Modern corporate building with full glass facade and open interior spaces.",
+    title: "Office Building",
+    description:"Corporate facade for interior workspaces.",
     url: "/projects/Noiseless/noiseless_01.jpg",
     tags: ["Exterior", "Commercial"],
     bCanZoom: true,
