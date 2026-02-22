@@ -8,7 +8,7 @@ export const renderingsData = [
   {
     title: "Office Space - Collaborative Area",
     description:"Contemporary office space designed for collaboration and teamwork, featuring modern furniture and open layouts.",
-    url: "../../../../../public/projects/Carramaldini/01-Office.png",
+    url: "/projects/Carramaldini/01-Office.png",
     tags: ["Interior", "Office"],
   },
   {
@@ -20,7 +20,7 @@ export const renderingsData = [
   {
     title: "Floorplan - Madison Residence",
     description:"A detailed floorplan of a modern residential home, showcasing an open layout with designated living, dining, and kitchen areas.",
-    url: "../../../../../public/projects/Carramaldini/01-FP.jpg",
+    url: "/projects/Carramaldini/01-FP.jpg",
     tags: ["Floorplan", "Interior"],
   },
   {
