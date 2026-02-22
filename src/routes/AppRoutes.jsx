@@ -8,7 +8,7 @@ import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
 
 import About from "../pages/About/About";
 import Projects from "../pages/Projects/Projects";
-import Contact from "../pages/Contact/Contact";
+import Contact from "../pages/Contact/contact";
 
 import AccessGate from "../pages/segurity/AccessGate";
 import ProtectedRoute from "./ProtectedRoute";
