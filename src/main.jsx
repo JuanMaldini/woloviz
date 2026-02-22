@@ -1,6 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./pages/App/App";
 
 const CHUNK_RELOAD_KEY = "__woloviz_chunk_reload_once__";
@@ -64,5 +66,7 @@ createRoot(container).render(
     >
       <App />
     </BrowserRouter>
+    <Analytics />
+    <SpeedInsights />
   </React.StrictMode>,
 );
