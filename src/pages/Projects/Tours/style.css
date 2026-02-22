@@ -32,6 +32,47 @@
   flex: 1 1 auto;
 }
 
+.tour-load-snackbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 140;
+  pointer-events: none;
+}
+
+.tour-load-snackbar__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  width: 100%;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.tour-load-snackbar__track {
+  height: 6px;
+  flex: 1;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.tour-load-snackbar__fill {
+  height: 100%;
+  background: rgba(0, 0, 0, 0.42);
+  transition: width 150ms ease-out;
+}
+
+.tour-load-snackbar__text {
+  color: rgba(0, 0, 0, 0.72);
+  font-size: 12px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .sample-ai-root a,
 .sample-ai-root a:hover,
 .sample-ai-root a:active,
