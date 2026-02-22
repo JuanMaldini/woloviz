@@ -53,5 +53,10 @@ fi
 
 echo "$MANIFEST" > dist/latest.json
 
-zip -j dist/marzipano-$VERSION.zip \
-  dist/build/marzipano.js dist/LICENSE.txt
+if [ -f dist/LICENSE.txt ]; then
+  zip -j dist/marzipano-$VERSION.zip \
+    dist/build/marzipano.js dist/LICENSE.txt
+else
+  zip -j dist/marzipano-$VERSION.zip \
+    dist/build/marzipano.js
+fi

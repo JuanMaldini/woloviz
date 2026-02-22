@@ -40,7 +40,7 @@ function getNpmVersion() {
 // ignores untracked files, but we want their presence to be considered dirty.
 function getGitVersion() {
   var versionStr =
-      execSync("git describe --tags --dirty", { encoding: 'utf-8' }).trim();
+      execSync("git describe --tags --dirty", { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
   if (!/-dirty$/.test(versionStr) &&
       execSync("git status --porcelain", { encoding: 'utf-8' })) {
     versionStr += '-dirty';
