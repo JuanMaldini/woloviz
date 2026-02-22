@@ -1,121 +1,53 @@
 import { useMemo, useState } from "react";
 
-import { sendCustomCommand } from "./E3DS/utils/e3ds-messaging";
+import { sendCustomCommand } from "./e3ds-messaging";
 
 const SECTIONS = [
   {
     title: "Media",
     actions: [
-      {
-        label: "Video",
-        field: "Video",
-        value: "Play",
-      },
+      { label: "Video", field: "Video", value: "Play" },
     ],
   },
   {
     title: "Movement Mode",
     actions: [
-      {
-        label: "Walk",
-        field: "MovementMode",
-        value: "Walk",
-      },
-      {
-        label: "Fly",
-        field: "MovementMode",
-        value: "Fly",
-      },
+      { label: "Walk", field: "MovementMode", value: "Walk" },
+      { label: "Fly", field: "MovementMode", value: "Fly" },
     ],
   },
   {
     title: "Camera Locations",
     actions: [
-      {
-        label: "Reception 1",
-        field: "GoTo",
-        value: "Reception1",
-      },
-      {
-        label: "Reception 2",
-        field: "GoTo",
-        value: "Reception2",
-      },
-      {
-        label: "Sales",
-        field: "GoTo",
-        value: "Sales",
-      },
-      {
-        label: "Furniture",
-        field: "GoTo",
-        value: "Furniture",
-      },
-      {
-        label: "Desk (Area)",
-        field: "GoTo",
-        value: "Desk",
-      },
+      { label: "Entry", field: "GoTo", value: "Reception1" },
+      { label: "Reception 2", field: "GoTo", value: "Reception2" },
+      { label: "Sales", field: "GoTo", value: "Sales" },
+      { label: "Furniture", field: "GoTo", value: "Furniture" },
+      { label: "Desk", field: "GoTo", value: "Desk" },
     ],
   },
   {
     title: "Reception Design",
     actions: [
-      {
-        label: "Design 1",
-        field: "ReceptionDesign",
-        value: 1,
-      },
-      {
-        label: "Design 2",
-        field: "ReceptionDesign",
-        value: 2,
-      },
-      {
-        label: "Design 3",
-        field: "ReceptionDesign",
-        value: 3,
-      },
+      { label: "Design 1", field: "ReceptionDesign", value: 1 },
+      { label: "Design 2", field: "ReceptionDesign", value: 2 },
+      { label: "Design 3", field: "ReceptionDesign", value: 3 },
     ],
   },
   {
     title: "Desk Options",
     actions: [
-      {
-        label: "Desk 1",
-        field: "DeskVariant",
-        value: 1,
-      },
-      {
-        label: "Desk 2",
-        field: "DeskVariant",
-        value: 2,
-      },
-      {
-        label: "Desk 3",
-        field: "DeskVariant",
-        value: 3,
-      },
+      { label: "Desk 1", field: "DeskVariant", value: 1 },
+      { label: "Desk 2", field: "DeskVariant", value: 2 },
+      { label: "Desk 3", field: "DeskVariant", value: 3 },
     ],
   },
   {
     title: "Textiles",
     actions: [
-      {
-        label: "Textile 1",
-        field: "Textile",
-        value: 1,
-      },
-      {
-        label: "Textile 2",
-        field: "Textile",
-        value: 2,
-      },
-      {
-        label: "Textile 3",
-        field: "Textile",
-        value: 3,
-      },
+      { label: "Textile 1", field: "Textile", value: 1 },
+      { label: "Textile 2", field: "Textile", value: 2 },
+      { label: "Textile 3", field: "Textile", value: 3 },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import Sidepanel from "../Sidepanel";
+import Sidepanel from "./Sidepanel";
 
 function E3DSPlayer() {
   const iframeRef = useRef(null);

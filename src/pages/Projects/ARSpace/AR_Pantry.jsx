@@ -1,5 +1,5 @@
 import React from "react";
-import ARViewerWithLoader from "./ARViewerWithLoader";
+import ARViewerWithLoader from "./components/ARViewerWithLoader";
 
 const AR_Pantry = () => {
   return (

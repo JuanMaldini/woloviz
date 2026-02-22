@@ -25,6 +25,11 @@
       "source": "cloudai-x/threejs-skills",
       "sourceType": "github",
       "computedHash": "5afbbaa048507fcbb76adca76cdc2fa58f7edb68383c0c48785756fecb68a2d0"
+    },
+    "toon-formatter": {
+      "source": "raintree-technology/claude-starter",
+      "sourceType": "github",
+      "computedHash": "848c71e43b08730434f529ff604268b8315a4b3f2a559c72af8b7cbe9cea81f3"
     }
   }
 }
