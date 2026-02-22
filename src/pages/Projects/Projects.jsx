@@ -31,19 +31,19 @@ const Projects = () => (
             Apartment
           </Link>
 
-          <Link
+          {/* <Link
             to="/example"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
             Example
-          </Link>
+          </Link> */}
 
-          <Link
+          {/* <Link
             to="/playground"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
             Tourfigurator
-          </Link>
+          </Link> */}
         </div>
       </div>
 
