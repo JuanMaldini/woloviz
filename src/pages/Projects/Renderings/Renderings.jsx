@@ -44,53 +44,52 @@ const Renderings = () => {
   }, [activeTags]);
 
   return (
-    <>
-      <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100 px-4 py-8">
-        <div className="mx-auto w-full max-w-6xl">
-          <h1 className="mb-4 text-2xl font-semibold text-slate-800">
-            Renderings
-          </h1>
+    <div className="relative flex min-h-full w-full flex-1 flex-col bg-gray-100 px-4 py-8">
+      <div className="mx-auto w-full max-w-6xl">
+        <h1 className="mb-4 text-2xl font-semibold text-slate-800">
+          Renderings
+        </h1>
 
-          <div className="mb-4 flex flex-wrap gap-2">
-            {availableTags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => handleTagToggle(tag)}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-2 py-1 text-[14px] font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 ${
-                  activeTags.includes(tag)
-                    ? "border-slate-300 bg-slate-100 text-slate-900"
-                    : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {availableTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => handleTagToggle(tag)}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-2 py-1 text-[14px] font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 ${
+                activeTags.includes(tag)
+                  ? "border-slate-300 bg-slate-100 text-slate-900"
+                  : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredRenderings.map((item) => (
-              <button
-                key={`${item.title}-${item.url}`}
-                type="button"
-                onClick={() => setSelectedRendering(item)}
-                className="flex flex-col items-start bg-white text-left shadow-sm transition-shadow duration-150 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
-              >
-                <img
-                  src={item.url}
-                  alt={item.title}
-                  className="block h-56 w-full object-cover object-top sm:h-72"
-                  loading="lazy"
-                />
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-slate-800">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-slate-600">{item.description}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredRenderings.map((item) => (
+            <button
+              key={`${item.title}-${item.url}`}
+              type="button"
+              onClick={() => setSelectedRendering(item)}
+              className="group flex flex-col items-start border border-slate-200/80 bg-white text-left shadow-sm will-change-transform transition-[transform,border-color,box-shadow] ease-out hover:scale-[1.012] hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
+              style={{ transitionDuration: "1200ms" }}
+            >
+              <img
+                src={item.url}
+                alt={item.title}
+                className="block h-56 w-full object-cover object-top sm:h-72"
+                loading="lazy"
+              />
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-slate-600">{item.description}</p>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -99,7 +98,7 @@ const Renderings = () => {
         item={selectedRendering}
         onClose={() => setSelectedRendering(null)}
       />
-    </>
+    </div>
   );
 };
 
