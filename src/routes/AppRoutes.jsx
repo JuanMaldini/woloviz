@@ -24,7 +24,7 @@ import ART_example from "../pages/Projects/ARTraking/ART_example";
 
 import Renderings from "../pages/Projects/Renderings/Renderings";
 
-import InvoiceGenerator from "../pages/PDFGenerator/gen_invoice";
+import InvoiceGenerator from "../pages/PDFGenerator/InvoiceGenerator";
 
 const AppRoutes = () => {
   return (
