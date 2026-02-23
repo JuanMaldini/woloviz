@@ -17,6 +17,7 @@ function App() {
     "/ar_chair_01",
     "/ar_pantry",
     "/art_example",
+    "/generator-invoice"
   ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;

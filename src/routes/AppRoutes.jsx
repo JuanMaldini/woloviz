@@ -24,6 +24,8 @@ import ART_example from "../pages/Projects/ARTraking/ART_example";
 
 import Renderings from "../pages/Projects/Renderings/Renderings";
 
+import InvoiceGenerator from "../pages/PDFGenerator/gen_invoice";
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -57,6 +59,9 @@ const AppRoutes = () => {
 
       {/*RENDERINGS*/}
       <Route path="/renderings" element={<Renderings />} />
+
+      {/*GENERATORS*/}
+      <Route path="/generator-invoice" element={<InvoiceGenerator />} />
 
       {/*NOT FOUND*/}
       <Route path="*" element={<NotFound />} />
