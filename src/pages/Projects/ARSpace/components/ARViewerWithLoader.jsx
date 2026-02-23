@@ -5,6 +5,7 @@ const toMbLabel = (bytes) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 const ARViewerWithLoader = ({ modelSrc }) => {
   const modelViewerRef = useRef(null);
+  const loadSessionRef = useRef(0);
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [modelLoadError, setModelLoadError] = useState(false);
   const [loadedBytes, setLoadedBytes] = useState(0);
@@ -12,7 +13,9 @@ const ARViewerWithLoader = ({ modelSrc }) => {
   const [progressFraction, setProgressFraction] = useState(0);
 
   useEffect(() => {
-    let ignore = false;
+    let canceled = false;
+    const currentSession = loadSessionRef.current + 1;
+    loadSessionRef.current = currentSession;
 
     const resolveTotalBytes = async () => {
       try {
@@ -21,7 +24,12 @@ const ARViewerWithLoader = ({ modelSrc }) => {
           headResponse.headers.get("content-length") || 0,
         );
 
-        if (!ignore && Number.isFinite(headLength) && headLength > 0) {
+        if (
+          !canceled &&
+          loadSessionRef.current === currentSession &&
+          Number.isFinite(headLength) &&
+          headLength > 0
+        ) {
           setTotalBytes(headLength);
           return;
         }
@@ -29,7 +37,7 @@ const ARViewerWithLoader = ({ modelSrc }) => {
         // Fall through to zero bytes mode.
       }
 
-      if (!ignore) {
+      if (!canceled && loadSessionRef.current === currentSession) {
         setTotalBytes(0);
       }
     };
@@ -41,7 +49,7 @@ const ARViewerWithLoader = ({ modelSrc }) => {
     resolveTotalBytes();
 
     return () => {
-      ignore = true;
+      canceled = true;
     };
   }, [modelSrc]);
 
@@ -51,7 +59,13 @@ const ARViewerWithLoader = ({ modelSrc }) => {
       return undefined;
     }
 
+    const currentSession = loadSessionRef.current;
+
     const handleProgress = (event) => {
+      if (loadSessionRef.current !== currentSession) {
+        return;
+      }
+
       const totalProgress = Number(event?.detail?.totalProgress ?? 0);
       const normalizedProgress = Math.max(
         0,
@@ -65,6 +79,10 @@ const ARViewerWithLoader = ({ modelSrc }) => {
     };
 
     const handleLoad = () => {
+      if (loadSessionRef.current !== currentSession) {
+        return;
+      }
+
       setProgressFraction(1);
       if (totalBytes > 0) {
         setLoadedBytes(totalBytes);
@@ -74,6 +92,10 @@ const ARViewerWithLoader = ({ modelSrc }) => {
     };
 
     const handleError = () => {
+      if (loadSessionRef.current !== currentSession) {
+        return;
+      }
+
       setIsModelLoading(false);
       setModelLoadError(true);
     };
@@ -87,7 +109,7 @@ const ARViewerWithLoader = ({ modelSrc }) => {
       modelViewer.removeEventListener("load", handleLoad);
       modelViewer.removeEventListener("error", handleError);
     };
-  }, [totalBytes]);
+  }, [modelSrc, totalBytes]);
 
   const progressPercent = useMemo(() => {
     if (totalBytes > 0) {

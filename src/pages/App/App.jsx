@@ -1,6 +1,6 @@
 import AppRoutes from "../../routes/AppRoutes";
-import Navbar from "../../components/Navbar/Navbar";
-import Footer from "../../components/Footer/Footer";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer/";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import "./App.css";

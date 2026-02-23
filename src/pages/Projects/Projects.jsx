@@ -77,13 +77,7 @@ const Projects = () => (
             to="/ar_chair_01"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
-            Chair
-          </Link>
-          <Link
-            to="/ar_pantry"
-            className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
-          >
-            Pantry
+            Augmented Reality
           </Link>
         </div>
       </div>
