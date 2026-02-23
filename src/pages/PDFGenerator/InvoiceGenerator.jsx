@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FiTrash2 } from "react-icons/fi";
-import PDFRenderButton from "./Components/PDFRenderButton";
+import PDFRenderButton from "./components/PDFRenderButton";
 
 const getDateOffset = (offsetDays = 0) => {
   const date = new Date();
