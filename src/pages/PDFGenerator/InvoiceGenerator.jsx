@@ -180,17 +180,13 @@ const InvoiceGenerator = () => {
             <article className="rounded border border-slate-200 p-4">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Issuer</h2>
               <p className="font-semibold">Woloviz Studio S.L.</p>
+              {/*
               <p>Example Street 123</p>
               <p>28001 Madrid, Spain</p>
-              <p>
-                <span className="font-semibold">Tax ID:</span> 000000000
-              </p>
-              <p>
-                <span className="font-semibold">VAT:</span> AAA00000000
-              </p>
-              <p>
-                <span className="font-semibold">Email:</span> contact@woloviz.com
-              </p>
+              <p><span className="font-semibold">Tax ID:</span> 000000000</p>
+              <p><span className="font-semibold">VAT:</span> AAA00000000</p>
+              */}
+              <p><span className="font-semibold">Email:</span> contact@woloviz.com</p>
             </article>
 
             <article className="rounded border border-slate-200 p-4">
@@ -222,7 +218,7 @@ const InvoiceGenerator = () => {
                   className="w-full border-b border-transparent bg-transparent outline-none focus:border-slate-300"
                 />
               </p>
-              <p>
+              {/* <p>
                 <span className="font-semibold">Tax ID:</span>{" "}
                 <input
                   type="text"
@@ -231,7 +227,7 @@ const InvoiceGenerator = () => {
                   placeholder="X0000000X"
                   className="w-[28mm] border-b border-transparent bg-transparent outline-none focus:border-slate-300"
                 />
-              </p>
+              </p> */}
               <p>
                 <span className="font-semibold">Contact:</span>{" "}
                 <input
