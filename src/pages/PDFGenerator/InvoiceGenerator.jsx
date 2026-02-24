@@ -171,9 +171,9 @@ const InvoiceGenerator = () => {
   }, []);
 
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col items-center overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+    <div className="flex min-h-full w-full flex-1 flex-col items-center overflow-x-hidden overflow-y-auto bg-gray-950 p-6">
       <div className="pdf-hide-on-export mb-4 flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-600">Currency:</label>
+        <label className="text-sm font-medium text-slate-50">Currency:</label>
         <select
           value={currencyKey}
           onChange={(e) => setCurrencyKey(e.target.value)}
