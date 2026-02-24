@@ -5,6 +5,7 @@ import NotFound from "../pages/NotFound/NotFound";
 
 import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
 import Apartment2 from "../pages/Projects/Tours/Apartment2/Apartment2";
+import Apartment3 from "../pages/Projects/Tours/Apartment3/Apartment3";
 
 import About from "../pages/About/About";
 import Projects from "../pages/Projects/Projects";
@@ -25,6 +26,7 @@ import ART_example from "../pages/Projects/ARTraking/ART_example";
 import Renderings from "../pages/Projects/Renderings/Renderings";
 
 import InvoiceGenerator from "../pages/PDFGenerator/InvoiceGenerator";
+import Prices from "../pages/Prices/Prices";
 
 const AppRoutes = () => {
   return (
@@ -46,6 +48,7 @@ const AppRoutes = () => {
       {/*TOUR*/}
       <Route path="/apartment-1" element={<SampleAI />} />
       <Route path="/apartment-2" element={<Apartment2 />} />
+      <Route path="/apartment-3" element={<Apartment3 />} />
 
       {/*3D WEBSITES*/}
       <Route path="/controls_orbit" element={<Controls_Orbit />} />
@@ -62,6 +65,9 @@ const AppRoutes = () => {
 
       {/*GENERATORS*/}
       <Route path="/generator-invoice" element={<InvoiceGenerator />} />
+
+      {/*PRICES*/}
+      <Route path="/prices" element={<Prices />} />
 
       {/*NOT FOUND*/}
       <Route path="*" element={<NotFound />} />
