@@ -45,7 +45,7 @@ const PDFRenderButton = ({ targetRef, fileName, label = "Generate invoice" }) =>
     <button
       type="button"
       onClick={handleGeneratePDF}
-      className="mt-6 rounded bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+      className="rounded bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
     >
       {label}
     </button>
