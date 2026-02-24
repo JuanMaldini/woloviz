@@ -8,8 +8,8 @@ import "./App.css";
 function App() {
   const location = useLocation();
   const hideFooterOn = new Set([
-    "/sample-ai",
-    "/example",
+    "/apartment-1",
+    "/apartment-2",
     "/samplesvg",
     "/playground",
     "/controls_orbit",

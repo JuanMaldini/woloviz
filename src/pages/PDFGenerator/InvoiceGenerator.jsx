@@ -21,7 +21,45 @@ const parseNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatMoney = (value) => `${value.toFixed(2)} €`;
+const formatMoney = (value, symbol = "€") => `${value.toFixed(2)} ${symbol}`;
+
+const CURRENCIES = {
+  EUR: {
+    label: "EUR – Euro",
+    symbol: "€",
+    fields: [
+      { label: "Name", key: "name", placeholder: "Account holder name" },
+      {
+        label: "IBAN",
+        key: "iban",
+        placeholder: "ES00 0000 0000 0000 0000 0000",
+      },
+    ],
+  },
+  USD: {
+    label: "USD – US Dollar",
+    symbol: "$",
+    fields: [
+      { label: "Name", key: "name", placeholder: "Account holder name" },
+      {
+        label: "IBAN",
+        key: "iban",
+        placeholder: "ES00 0000 0000 0000 0000 0000",
+      },
+      { label: "BIC/SWIFT", key: "bic", placeholder: "BANKESMMXXX" },
+    ],
+  },
+  ARS: {
+    label: "ARS – Peso Argentino",
+    symbol: "$",
+    fields: [
+      { label: "Nombre", key: "name", placeholder: "Nombre del titular" },
+      { label: "CBU", key: "cbu", placeholder: "0000000000000000000000" },
+    ],
+  },
+};
+
+const EMPTY_PAYMENT_FIELDS = { name: "", iban: "", bic: "", cbu: "" };
 
 const createLineItem = () => ({
   id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
@@ -44,6 +82,13 @@ const InvoiceGenerator = () => {
   const [clientTaxId, setClientTaxId] = useState("");
   const [clientContact, setClientContact] = useState("");
   const [lineItems, setLineItems] = useState([createLineItem()]);
+  const [currencyKey, setCurrencyKey] = useState("EUR");
+  const currency = CURRENCIES[currencyKey];
+  const [paymentFields, setPaymentFields] = useState(EMPTY_PAYMENT_FIELDS);
+
+  useEffect(() => {
+    setPaymentFields(EMPTY_PAYMENT_FIELDS);
+  }, [currencyKey]);
 
   const updateLineItem = (itemId, field, value) => {
     setLineItems((previousItems) =>
@@ -109,7 +154,8 @@ const InvoiceGenerator = () => {
       const availableWidth = window.innerWidth - viewportPadding;
       const pageWidth = pageRef.current.offsetWidth;
       const pageHeight = pageRef.current.offsetHeight;
-      const nextScale = availableWidth < pageWidth ? availableWidth / pageWidth : 1;
+      const nextScale =
+        availableWidth < pageWidth ? availableWidth / pageWidth : 1;
 
       setPageScale(nextScale);
       setScaledHeight(pageHeight * nextScale);
@@ -126,6 +172,25 @@ const InvoiceGenerator = () => {
 
   return (
     <div className="flex min-h-full w-full flex-1 flex-col items-center overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+      <div className="pdf-hide-on-export mb-4 flex items-center gap-3">
+        <label className="text-sm font-medium text-slate-600">Currency:</label>
+        <select
+          value={currencyKey}
+          onChange={(e) => setCurrencyKey(e.target.value)}
+          className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-slate-500"
+        >
+          {Object.entries(CURRENCIES).map(([key, cfg]) => (
+            <option key={key} value={key}>
+              {cfg.label}
+            </option>
+          ))}
+        </select>
+        <PDFRenderButton
+          targetRef={pageRef}
+          fileName={pdfFileName}
+          label="Generate invoice"
+        />
+      </div>
       <div
         className="w-full"
         style={{
@@ -136,12 +201,21 @@ const InvoiceGenerator = () => {
         <section
           ref={pageRef}
           className="flex h-[297mm] w-[210mm] shrink-0 flex-col bg-white p-[12mm] text-slate-800 shadow-sm"
-          style={{ transform: `scale(${pageScale})`, transformOrigin: "top left" }}
+          style={{
+            transform: `scale(${pageScale})`,
+            transformOrigin: "top left",
+          }}
         >
           <header className="mb-8 flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center justify-center gap-3">
-              <img src="/icons/logo.svg" alt="Company logo" className="h-10 w-auto shrink-0" />
-              <h1 className="text-3xl font-bold leading-none tracking-tight">INVOICE</h1>
+              <img
+                src="/icons/logo.svg"
+                alt="Company logo"
+                className="h-10 w-auto shrink-0"
+              />
+              <h1 className="text-3xl font-bold leading-none tracking-tight">
+                INVOICE
+              </h1>
             </div>
 
             <div className="space-y-2 text-right text-sm">
@@ -178,7 +252,9 @@ const InvoiceGenerator = () => {
 
           <div className="mb-8 grid grid-cols-2 gap-6">
             <article className="rounded border border-slate-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Issuer</h2>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Issuer
+              </h2>
               <p className="font-semibold">Woloviz Studio S.L.</p>
               {/*
               <p>Example Street 123</p>
@@ -186,11 +262,16 @@ const InvoiceGenerator = () => {
               <p><span className="font-semibold">Tax ID:</span> 000000000</p>
               <p><span className="font-semibold">VAT:</span> AAA00000000</p>
               */}
-              <p><span className="font-semibold">Email:</span> contact@woloviz.com</p>
+              <p>
+                <span className="font-semibold">Email:</span>{" "}
+                contact@woloviz.com
+              </p>
             </article>
 
             <article className="rounded border border-slate-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Bill To</h2>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Bill To
+              </h2>
               <p className="font-semibold">
                 <input
                   type="text"
@@ -204,7 +285,9 @@ const InvoiceGenerator = () => {
                 <input
                   type="text"
                   value={clientAddressLine1}
-                  onChange={(event) => setClientAddressLine1(event.target.value)}
+                  onChange={(event) =>
+                    setClientAddressLine1(event.target.value)
+                  }
                   placeholder="Client Address"
                   className="w-full border-b border-transparent bg-transparent outline-none focus:border-slate-300"
                 />
@@ -213,7 +296,9 @@ const InvoiceGenerator = () => {
                 <input
                   type="text"
                   value={clientAddressLine2}
-                  onChange={(event) => setClientAddressLine2(event.target.value)}
+                  onChange={(event) =>
+                    setClientAddressLine2(event.target.value)
+                  }
                   placeholder="City / Postal Code / Country"
                   className="w-full border-b border-transparent bg-transparent outline-none focus:border-slate-300"
                 />
@@ -254,7 +339,8 @@ const InvoiceGenerator = () => {
               </thead>
               <tbody>
                 {lineItems.map((item) => {
-                  const amountValue = parseNumber(item.qty) * parseNumber(item.unitPrice);
+                  const amountValue =
+                    parseNumber(item.qty) * parseNumber(item.unitPrice);
 
                   return (
                     <tr key={item.id} className="border-b border-slate-200">
@@ -262,7 +348,13 @@ const InvoiceGenerator = () => {
                         <input
                           type="text"
                           value={item.description}
-                          onChange={(event) => updateLineItem(item.id, "description", event.target.value)}
+                          onChange={(event) =>
+                            updateLineItem(
+                              item.id,
+                              "description",
+                              event.target.value,
+                            )
+                          }
                           placeholder="Description of services"
                           className="w-full border-b border-transparent bg-transparent outline-none focus:border-slate-300"
                         />
@@ -273,7 +365,9 @@ const InvoiceGenerator = () => {
                           min="0"
                           step="1"
                           value={item.qty}
-                          onChange={(event) => updateLineItem(item.id, "qty", event.target.value)}
+                          onChange={(event) =>
+                            updateLineItem(item.id, "qty", event.target.value)
+                          }
                           className="w-[16mm] border-b border-transparent bg-transparent outline-none [appearance:textfield] focus:border-slate-300 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </td>
@@ -284,10 +378,16 @@ const InvoiceGenerator = () => {
                             min="0"
                             step="0.01"
                             value={item.unitPrice}
-                            onChange={(event) => updateLineItem(item.id, "unitPrice", event.target.value)}
+                            onChange={(event) =>
+                              updateLineItem(
+                                item.id,
+                                "unitPrice",
+                                event.target.value,
+                              )
+                            }
                             className="w-[24mm] border-b border-transparent bg-transparent outline-none [appearance:textfield] focus:border-slate-300 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
-                          <span>€</span>
+                          <span>{currency.symbol}</span>
                         </div>
                       </td>
                       <td className="px-3 py-3 text-right">
@@ -297,10 +397,12 @@ const InvoiceGenerator = () => {
                             min="0"
                             step="0.01"
                             value={amountValue.toFixed(2)}
-                            onChange={(event) => updateAmountValue(item.id, event.target.value)}
+                            onChange={(event) =>
+                              updateAmountValue(item.id, event.target.value)
+                            }
                             className="w-[28mm] border-b border-transparent bg-transparent text-right outline-none [appearance:textfield] focus:border-slate-300 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
-                          <span>€</span>
+                          <span>{currency.symbol}</span>
                         </div>
                       </td>
 
@@ -338,22 +440,38 @@ const InvoiceGenerator = () => {
             <div className="w-[78mm] space-y-2 rounded border border-slate-200 p-4 text-sm">
               <div className="flex items-center justify-between text-base font-semibold">
                 <span>Total Due</span>
-                <span>{formatMoney(totalAmount)}</span>
+                <span>{formatMoney(totalAmount, currency.symbol)}</span>
               </div>
             </div>
           </div>
 
           <footer className="mt-auto grid grid-cols-2 gap-4 border-t border-slate-200 pt-4 text-xs text-slate-600">
             <div>
-              <p className="mb-1 font-semibold text-slate-700">Payment Terms</p>
-              <p>IBAN: ES00 0000 0000 0000 0000 0000</p>
-              <p>BIC/SWIFT: BANKESMMXXX</p>
+              <p className="mb-1 font-semibold text-slate-700">
+                Payment Terms{" "}
+                <span className="text-slate-400">{currency.symbol}</span>
+              </p>
+              {currency.fields.map((field) => (
+                <p key={field.key} className="flex items-baseline gap-1">
+                  <span className="shrink-0 font-semibold">{field.label}:</span>
+                  <input
+                    type="text"
+                    value={paymentFields[field.key]}
+                    onChange={(e) =>
+                      setPaymentFields((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    placeholder={field.placeholder}
+                    className="min-w-0 flex-1 border-b border-transparent bg-transparent outline-none focus:border-slate-300"
+                  />
+                </p>
+              ))}
             </div>
           </footer>
         </section>
       </div>
-
-      <PDFRenderButton targetRef={pageRef} fileName={pdfFileName} label="Generate invoice" />
     </div>
   );
 };

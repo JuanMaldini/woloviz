@@ -363,7 +363,7 @@ const data = {
       infoHotspots: [],
     },
   ],
-  name: "Sample AI Tour",
+  name: "Apartment-1",
   settings: {
     mouseViewMode: "drag",
     autorotateEnabled: false,

@@ -4,7 +4,7 @@ import SegVialGremio from "../pages/Projects/Realtime/SegVialGremio";
 import NotFound from "../pages/NotFound/NotFound";
 
 import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
-import Marzipano from "../pages/Projects/Tours/marzipano/Marzipano";
+import Apartment2 from "../pages/Projects/Tours/Apartment2/Apartment2";
 
 import About from "../pages/About/About";
 import Projects from "../pages/Projects/Projects";
@@ -44,8 +44,8 @@ const AppRoutes = () => {
       <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio/></ProtectedRoute>}/>
 
       {/*TOUR*/}
-      <Route path="/sample-ai" element={<SampleAI />} />
-      <Route path="/example" element={<Marzipano />} />
+      <Route path="/apartment-1" element={<SampleAI />} />
+      <Route path="/apartment-2" element={<Apartment2 />} />
 
       {/*3D WEBSITES*/}
       <Route path="/controls_orbit" element={<Controls_Orbit />} />

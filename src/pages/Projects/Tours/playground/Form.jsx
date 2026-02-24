@@ -1832,34 +1832,16 @@ export default function Form({
         return;
       }
 
-      const normalizedClientName = String(clientName ?? "").trim();
-      const normalizedClientEmail = String(clientEmail ?? "").trim();
-      if (!normalizedClientName || !normalizedClientEmail) {
-        setCopyState({
-          state: "error",
-          message: "Name and email are required",
-        });
-        return;
-      }
-
-      const integrationPayload = {
-        status: "OK",
-        client: {
-          name: normalizedClientName,
-          email: normalizedClientEmail,
-        },
-        storageBase: `/projects/clientes/${sanitizePathSegment(normalizedClientName) || "cliente"}`,
-        uploadedAssets,
-        generatedAt: new Date().toISOString(),
-      };
-
-      if (isProduction) {
-        writeDraftInBrowser(false);
-        downloadTextFile("data.js", output);
-        setCopyState({ state: "copied", message: "Downloaded data.js" });
+      await copyToClipboard(output);
+      if (!isProduction) {
+        writeDataInDev(output, false).catch(() => {});
       } else {
-        await writeDataInDev(output, true);
+        writeDraftInBrowser(false);
       }
+      setCopyState({
+        state: "copied",
+        message: "Copied data.js to clipboard",
+      });
       window.setTimeout(
         () => setCopyState({ state: "idle", message: "" }),
         1500,
@@ -2236,7 +2218,9 @@ export default function Form({
                                 aria-label="Link hotspot target"
                               >
                                 {!selectableTargets.length ? (
-                                  <option value="">No target scenes available</option>
+                                  <option value="">
+                                    No target scenes available
+                                  </option>
                                 ) : null}
                                 {targetOptions.map((candidate) => (
                                   <option

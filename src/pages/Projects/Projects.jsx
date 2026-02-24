@@ -25,10 +25,16 @@ const Projects = () => (
         </div>
         <div className="flex flex-col gap-1">
           <Link
-            to="/sample-ai"
+            to="/apartment-1"
             className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
           >
-            Apartment
+            Apartment 1
+          </Link>
+          <Link
+            to="/apartment-2"
+            className="w-fit text-base font-medium text-slate-900 no-underline transition-colors hover:text-slate-600"
+          >
+            Apartment 2
           </Link>
 
           {/* <Link
