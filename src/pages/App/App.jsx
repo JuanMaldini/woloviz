@@ -10,6 +10,7 @@ function App() {
   const hideFooterOn = new Set([
     "/apartment-1",
     "/apartment-2",
+    "/apartment-3",
     "/samplesvg",
     "/playground",
     "/controls_orbit",
