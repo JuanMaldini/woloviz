@@ -21,7 +21,7 @@ import MenuModal, {
 
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
+const NOISELESS_GLB_URL = "/projects/Apartment2/Apartment2.glb";
 const INITIAL_HIDDEN_OBJECT_NAMES = [
   "Cieloraso",
   "TECHO_EXTERIOR",

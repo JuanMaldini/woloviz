@@ -3,7 +3,7 @@ import Home from "../pages/Home/Home";
 import SegVialGremio from "../pages/Projects/Realtime/SegVialGremio";
 import NotFound from "../pages/NotFound/NotFound";
 
-import SampleAI from "../pages/Projects/Tours/sample-ai/sample-ai";
+import Apartment1 from "../pages/Projects/Tours/Apartment1/Apartment1";
 import Apartment2 from "../pages/Projects/Tours/Apartment2/Apartment2";
 import Apartment3 from "../pages/Projects/Tours/Apartment3/Apartment3";
 
@@ -46,7 +46,7 @@ const AppRoutes = () => {
       <Route path="/samplesvg" element={<ProtectedRoute><SegVialGremio/></ProtectedRoute>}/>
 
       {/*TOUR*/}
-      <Route path="/apartment-1" element={<SampleAI />} />
+      <Route path="/apartment-1" element={<Apartment1 />} />
       <Route path="/apartment-2" element={<Apartment2 />} />
       <Route path="/apartment-3" element={<Apartment3 />} />
 

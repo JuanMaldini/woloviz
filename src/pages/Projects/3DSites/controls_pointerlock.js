@@ -28,7 +28,7 @@ const PLAYER_SPEED_MULTIPLY = 0.5;
 const PLAYER_LOOK_MULTIPLY = 0.5;
 const GLB_MAX_RETRIES = 2;
 const GLB_RETRY_DELAY_MS = 700;
-const NOISELESS_GLB_URL = "/projects/Noiseless/noiseless.glb";
+const NOISELESS_GLB_URL = "/projects/Apartment2/Apartment2.glb";
 
 const toNormalizedDirectionVector = (direction) => {
   const vector = new THREE.Vector3(

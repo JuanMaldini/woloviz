@@ -13,9 +13,12 @@ import {
   preloadTourAssetsWithProgress,
 } from "../utils/tourAssetLoading";
 
+// Generated from /playground
+// Relative positions (0..1) over floorplan image.
 export const floorplanScenePositions = [
-  { id: "scene-1", x: 0.8986, y: 0.2743 },
-  { id: "scene-2", x: 0.5934, y: 0.2796 },
+  { id: "scene-1", x: 0.90, y: 0.27 },
+  { id: "scene-2", x: 0.5888157894736842, y: 0.28289473684210525 },
+  { id: "scene-3", x: 0.575, y: 0.5796052631578947 },
 ];
 
 export const data = {
@@ -23,32 +26,52 @@ export const data = {
     {
       id: "scene-1",
       name: "scene-1",
-      imageUrl: "/projects/Noiseless/360/camera_360_01.jpg", // original file: camera_360_01.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_01.jpg", // original file: Apartment2_360_01.jpg
       equirectWidth: 10000,
       initialViewParameters: {
         pitch: 5,
-        yaw: 330,
-        fov: 50,
+        yaw: 295,
+        fov: 100,
       },
-      linkHotspots: [{ yaw: -1.65732, pitch: -22.765205, target: "scene-2" }],
-      infoHotspots: [],
+      linkHotspots: [
+        { yaw: -1.65732, pitch: -22.765205, target: "scene-2" },
+        { yaw: -42.054088, pitch: -14.062712, target: "scene-3" },
+      ],
+      infoHotspots: [
+      ],
     },
     {
       id: "scene-2",
       name: "scene-2",
-      imageUrl: "/projects/Noiseless/360/camera_360_02.jpg", // original file: camera_360_02.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_02.jpg", // original file: Apartment2_360_02.jpg
       equirectWidth: 10000,
-      linkHotspots: [{ yaw: 178.901774, pitch: -21.890689, target: "scene-1" }],
-      infoHotspots: [],
+      linkHotspots: [
+        { yaw: 178.901774, pitch: -21.890689, target: "scene-1" },
+        { yaw: -79.0674, pitch: -21.006124, target: "scene-3" },
+      ],
+      infoHotspots: [
+      ],
     },
+    {
+      id: "scene-3",
+      name: "scene-3",
+      imageUrl: "/projects/Apartment2/Apartment2_360_03.jpg", // original file: Apartment2_360_03.jpg
+      equirectWidth: 10000,
+      linkHotspots: [
+        { yaw: 133.139627, pitch: -17.155637, target: "scene-1" },
+        { yaw: 85.68115, pitch: -23.16039, target: "scene-2" },
+      ],
+      infoHotspots: [
+      ],
+    }
   ],
-  name: "Apartment-2",
-  floorplanImageUrl: "/projects/Noiseless/360/camera_360_top.jpg",
+  name: "Apartment2",
+  floorplanImageUrl: "/projects/Apartment2/Apartment2_360_top.jpg",
   settings: {
     mouseViewMode: "drag",
     autorotateEnabled: false,
     fullscreenButton: true,
-    viewControlButtons: true,
+    viewControlButtons: false,
   },
 };
 
@@ -75,7 +98,7 @@ const Apartment2 = () => {
   const assetUrls = useMemo(
     () => ({
       floorplan: new URL(
-        "/projects/Noiseless/360/camera_360_top.jpg",
+        "/projects/Apartment2/Apartment2_360_top.jpg",
         import.meta.url,
       ).href,
       close: new URL("../imgButtons/close.png", import.meta.url).href,
@@ -302,7 +325,7 @@ const Apartment2 = () => {
         const sceneImageUrl = resolvePreloadedUrl(sceneData.imageUrl);
         const source = Marzipano.ImageUrlSource.fromString(sceneImageUrl);
         const geometry = new Marzipano.EquirectGeometry([
-          { width: sceneData.equirectWidth || 10000 },
+          { width: sceneData.equirectWidth },
         ]);
 
         const limiter = Marzipano.RectilinearView.limit.traditional(
