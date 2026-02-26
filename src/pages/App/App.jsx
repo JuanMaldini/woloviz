@@ -1,7 +1,6 @@
 import AppRoutes from "../../routes/AppRoutes";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer/";
-import TourPreloader from "../Projects/Tours/components/TourPreloader";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import "./App.css";
@@ -19,7 +18,7 @@ function App() {
     "/ar_chair_01",
     "/ar_pantry",
     "/art_example",
-    "/generator-invoice",
+    "/generator-invoice"
   ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;
@@ -65,7 +64,6 @@ function App() {
 
   return (
     <main className={layoutClass}>
-      <TourPreloader enabled={true} />
       <div className="sticky top-0 z-[100] bg-white shadow-sm">
         <Navbar />
       </div>

@@ -447,7 +447,10 @@ const InvoiceGenerator = () => {
 
           <footer className="mt-auto grid grid-cols-2 gap-4 border-t border-slate-200 pt-4 text-xs text-slate-600">
             <div>
-              <p className="mb-1 font-semibold text-slate-700">Payment Terms</p>
+              <p className="mb-1 font-semibold text-slate-700">
+                Payment Terms{" "}
+                <span className="text-slate-400">{currency.symbol}</span>
+              </p>
               {currency.fields.map((field) => (
                 <p key={field.key} className="flex items-baseline gap-1">
                   <span className="shrink-0 font-semibold">{field.label}:</span>
