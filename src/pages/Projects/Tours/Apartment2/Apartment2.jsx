@@ -12,11 +12,16 @@ import {
   buildTourAssetManifest,
   preloadTourAssetsWithProgress,
 } from "../utils/tourAssetLoading";
+import {
+  getUrlMap,
+  storeUrlMap,
+  startBackgroundQueue,
+} from "../utils/tourPreloadManager";
 
 // Generated from /playground
 // Relative positions (0..1) over floorplan image.
 export const floorplanScenePositions = [
-  { id: "scene-1", x: 0.90, y: 0.27 },
+  { id: "scene-1", x: 0.9, y: 0.27 },
   { id: "scene-2", x: 0.5888157894736842, y: 0.28289473684210525 },
   { id: "scene-3", x: 0.575, y: 0.5796052631578947 },
 ];
@@ -37,8 +42,7 @@ export const data = {
         { yaw: -1.65732, pitch: -22.765205, target: "scene-2" },
         { yaw: -42.054088, pitch: -14.062712, target: "scene-3" },
       ],
-      infoHotspots: [
-      ],
+      infoHotspots: [],
     },
     {
       id: "scene-2",
@@ -49,8 +53,7 @@ export const data = {
         { yaw: 178.901774, pitch: -21.890689, target: "scene-1" },
         { yaw: -79.0674, pitch: -21.006124, target: "scene-3" },
       ],
-      infoHotspots: [
-      ],
+      infoHotspots: [],
     },
     {
       id: "scene-3",
@@ -61,9 +64,8 @@ export const data = {
         { yaw: 133.139627, pitch: -17.155637, target: "scene-1" },
         { yaw: 85.68115, pitch: -23.16039, target: "scene-2" },
       ],
-      infoHotspots: [
-      ],
-    }
+      infoHotspots: [],
+    },
   ],
   name: "Apartment2",
   floorplanImageUrl: "/projects/Apartment2/Apartment2_360_top.jpg",
@@ -180,7 +182,8 @@ const Apartment2 = () => {
 
     const assetManifest = buildTourAssetManifest(data, assetUrls);
     setLoadProgress({
-      visible: assetManifest.totalFiles > 0,
+      visible:
+        getUrlMap("apartment-2") === null && assetManifest.totalFiles > 0,
       loadedBytes: 0,
       totalBytes: 0,
       completedFiles: 0,
@@ -190,72 +193,113 @@ const Apartment2 = () => {
 
     const init = async () => {
       preloadAbortController = new AbortController();
-      const preloadPromise = preloadTourAssetsWithProgress({
-        urls: assetManifest.allUrls,
-        signal: preloadAbortController.signal,
-        onProgress: (progress) => {
-          if (disposed) {
-            return;
-          }
-          setLoadProgress({
-            visible: true,
-            loadedBytes: progress.loadedBytes,
-            totalBytes: progress.totalBytes,
-            completedFiles: progress.completedFiles,
-            totalFiles: progress.totalFiles,
-            hasError: progress.hasError,
-          });
-        },
-      });
+      const cachedUrlMap = getUrlMap("apartment-2");
+      let resolvePreloadedUrl;
 
-      try {
-        await Promise.all([
-          preloadPromise,
-          loadScriptOnce("/build/marzipano.js", "marzipano"),
-          loadScriptOnce(
-            "https://www.marzipano.net/demos/common/screenfull.js",
-            "screenfull",
-          ),
-        ]);
-      } catch (error) {
+      if (cachedUrlMap) {
+        // Fast path: assets already cached in memory — skip snackbar and fetch.
+        console.log("[TourPreload] ⚡ apartment-2 — cache HIT, skipping fetch");
+        resolvePreloadedUrl = (url) => cachedUrlMap.get(url) || url;
         if (!disposed) {
+          setResolvedAssetUrls((currentAssetUrls) => {
+            if (!currentAssetUrls) return currentAssetUrls;
+            return {
+              ...currentAssetUrls,
+              floorplan: resolvePreloadedUrl(currentAssetUrls.floorplan),
+            };
+          });
+          setLoadProgress({
+            visible: false,
+            loadedBytes: 0,
+            totalBytes: 0,
+            completedFiles: 0,
+            totalFiles: 0,
+            hasError: false,
+          });
+        }
+        try {
+          await Promise.all([
+            loadScriptOnce("/build/marzipano.js", "marzipano"),
+            loadScriptOnce(
+              "https://www.marzipano.net/demos/common/screenfull.js",
+              "screenfull",
+            ),
+          ]);
+        } catch {
+          return;
+        }
+      } else {
+        // Normal path: fetch all assets, then persist blobs in the shared cache.
+        console.log(
+          "[TourPreload] 🔄 apartment-2 — cache MISS, fetching assets",
+        );
+        const preloadPromise = preloadTourAssetsWithProgress({
+          urls: assetManifest.allUrls,
+          signal: preloadAbortController.signal,
+          onProgress: (progress) => {
+            if (disposed) {
+              return;
+            }
+            setLoadProgress({
+              visible: true,
+              loadedBytes: progress.loadedBytes,
+              totalBytes: progress.totalBytes,
+              completedFiles: progress.completedFiles,
+              totalFiles: progress.totalFiles,
+              hasError: progress.hasError,
+            });
+          },
+        });
+
+        try {
+          await Promise.all([
+            preloadPromise,
+            loadScriptOnce("/build/marzipano.js", "marzipano"),
+            loadScriptOnce(
+              "https://www.marzipano.net/demos/common/screenfull.js",
+              "screenfull",
+            ),
+          ]);
+        } catch (error) {
+          if (!disposed) {
+            setLoadProgress((previousState) => ({
+              ...previousState,
+              visible: false,
+              hasError: true,
+            }));
+          }
+          return;
+        }
+
+        const preloadResult = await preloadPromise;
+        // Store blobs in shared cache. The manager owns them — no revocation on unmount.
+        storeUrlMap("apartment-2", preloadResult.urlMap);
+        revokePreloadedUrls = () => {};
+        resolvePreloadedUrl = (url) => preloadResult.urlMap.get(url) || url;
+
+        if (!disposed) {
+          setResolvedAssetUrls((currentAssetUrls) => {
+            if (!currentAssetUrls) {
+              return currentAssetUrls;
+            }
+            return {
+              ...currentAssetUrls,
+              floorplan: resolvePreloadedUrl(currentAssetUrls.floorplan),
+            };
+          });
           setLoadProgress((previousState) => ({
             ...previousState,
+            loadedBytes: preloadResult.loadedBytes,
+            totalBytes: preloadResult.totalBytes,
+            completedFiles: preloadResult.completedFiles,
+            totalFiles: preloadResult.totalFiles,
+            hasError: preloadResult.hasError,
             visible: false,
-            hasError: true,
           }));
         }
-        return;
-      }
-
-      const preloadResult = await preloadPromise;
-      revokePreloadedUrls = preloadResult.revokeObjectUrls;
-
-      const resolvePreloadedUrl = (url) => preloadResult.urlMap.get(url) || url;
-
-      if (!disposed) {
-        setResolvedAssetUrls((currentAssetUrls) => {
-          if (!currentAssetUrls) {
-            return currentAssetUrls;
-          }
-          return {
-            ...currentAssetUrls,
-            floorplan: resolvePreloadedUrl(currentAssetUrls.floorplan),
-          };
-        });
-        setLoadProgress((previousState) => ({
-          ...previousState,
-          loadedBytes: preloadResult.loadedBytes,
-          totalBytes: preloadResult.totalBytes,
-          completedFiles: preloadResult.completedFiles,
-          totalFiles: preloadResult.totalFiles,
-          hasError: preloadResult.hasError,
-          visible: false,
-        }));
       }
 
       if (disposed) {
-        revokePreloadedUrls();
         return;
       }
 
@@ -667,6 +711,7 @@ const Apartment2 = () => {
         stopAutorotate();
       }
 
+      startBackgroundQueue();
       switchScene(scenes[0]);
     };
 
