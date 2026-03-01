@@ -16,18 +16,19 @@ import {
 // Generated from /playground
 // Relative positions (0..1) over floorplan image.
 export const floorplanScenePositions = [
-  { id: "scene-1", x: 0.90, y: 0.27 },
+  { id: "scene-1", x: 0.938, y: 0.4006578947368421 },
   { id: "scene-2", x: 0.5888157894736842, y: 0.28289473684210525 },
-  { id: "scene-3", x: 0.575, y: 0.5796052631578947 },
+  { id: "scene-3", x: 0.776, y: 0.5796052631578947 },
+  { id: "scene-4", x: 0.5, y: 0.5 },
 ];
 
 export const data = {
   scenes: [
     {
       id: "scene-1",
-      name: "scene-1",
-      imageUrl: "/projects/Apartment2/Apartment2_360_01.jpg", // original file: Apartment2_360_01.jpg
-      equirectWidth: 10000,
+      name: "scene1",
+      imageUrl: "/public/projects/Apartment2/Apartment2_360_01.jpg", // original file: Apartment2_360_01.jpg
+      equirectWidth: 4000,
       initialViewParameters: {
         pitch: 5,
         yaw: 295,
@@ -42,31 +43,46 @@ export const data = {
     },
     {
       id: "scene-2",
-      name: "scene-2",
-      imageUrl: "/projects/Apartment2/Apartment2_360_02.jpg", // original file: Apartment2_360_02.jpg
-      equirectWidth: 10000,
+      name: "scene2",
+      imageUrl: "/public/projects/Apartment2/Apartment2_360_02.jpg", // original file: Apartment2_360_02.jpg
+      equirectWidth: 4000,
       linkHotspots: [
         { yaw: 178.901774, pitch: -21.890689, target: "scene-1" },
         { yaw: -79.0674, pitch: -21.006124, target: "scene-3" },
+        { yaw: -99.495114, pitch: -15.770656, target: "scene-4" },
       ],
       infoHotspots: [
       ],
     },
     {
       id: "scene-3",
-      name: "scene-3",
-      imageUrl: "/projects/Apartment2/Apartment2_360_03.jpg", // original file: Apartment2_360_03.jpg
-      equirectWidth: 10000,
+      name: "scene3",
+      imageUrl: "/public/projects/Apartment2/Apartment2_360_03.jpg", // original file: Apartment2_360_03.jpg
+      equirectWidth: 4000,
       linkHotspots: [
         { yaw: 133.139627, pitch: -17.155637, target: "scene-1" },
         { yaw: 85.68115, pitch: -23.16039, target: "scene-2" },
+        { yaw: -114.628321, pitch: -38.19572, target: "scene-4" },
+      ],
+      infoHotspots: [
+      ],
+    },
+    {
+      id: "scene-4",
+      name: "scene4",
+      imageUrl: "/public/projects/Apartment2/Apartment2_360_04.jpg", // original file: Apartment2_360_04.jpg
+      equirectWidth: 4000,
+      linkHotspots: [
+        { yaw: 117.383696, pitch: -12.720225, target: "scene-1" },
+        { yaw: 79.303294, pitch: -15.399052, target: "scene-2" },
+        { yaw: 51.74327, pitch: -34.171095, target: "scene-3" },
       ],
       infoHotspots: [
       ],
     }
   ],
   name: "Apartment2",
-  floorplanImageUrl: "/projects/Apartment2/Apartment2_360_top.jpg",
+  floorplanImageUrl: "/public/projects/Apartment2/Apartment2_360_top.jpg",
   settings: {
     mouseViewMode: "drag",
     autorotateEnabled: false,
@@ -74,7 +90,6 @@ export const data = {
     viewControlButtons: false,
   },
 };
-
 const Apartment2 = () => {
   const rootRef = useRef(null);
   const [topBarTarget, setTopBarTarget] = useState(null);
