@@ -26,7 +26,6 @@ import ART_example from "../pages/Projects/ARTraking/ART_example";
 import Renderings from "../pages/Projects/Renderings/Renderings";
 
 import InvoiceGenerator from "../pages/PDFGenerator/InvoiceGenerator";
-import Prices from "../pages/Prices/Prices";
 
 const AppRoutes = () => {
   return (
@@ -65,9 +64,6 @@ const AppRoutes = () => {
 
       {/*GENERATORS*/}
       <Route path="/generator-invoice" element={<InvoiceGenerator />} />
-
-      {/*PRICES*/}
-      <Route path="/prices" element={<Prices />} />
 
       {/*NOT FOUND*/}
       <Route path="*" element={<NotFound />} />
