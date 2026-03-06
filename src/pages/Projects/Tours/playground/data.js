@@ -12,7 +12,7 @@ export const data = {
     {
       id: "scene-1",
       name: "scene1",
-      imageUrl: "blob:http://localhost:5173/1081bf84-e9c3-45f3-86e5-ac70cc0f5e0c", // original file: Apartment2_360_01.jpg
+      imageUrl: "blob:http://localhost:5173/1081bf84-e9c3-45f3-86e5-ac70cc0f5e0c",
       equirectWidth: 4000,
       initialViewParameters: {
         pitch: 5,
@@ -29,7 +29,7 @@ export const data = {
     {
       id: "scene-2",
       name: "scene2",
-      imageUrl: "blob:http://localhost:5173/a42efe70-c6c7-470d-9c6a-8d916bbcde68", // original file: Apartment2_360_02.jpg
+      imageUrl: "blob:http://localhost:5173/a42efe70-c6c7-470d-9c6a-8d916bbcde68",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 178.901774, pitch: -21.890689, target: "scene-1" },
@@ -42,7 +42,7 @@ export const data = {
     {
       id: "scene-3",
       name: "scene3",
-      imageUrl: "blob:http://localhost:5173/f1abef98-d2eb-4ef7-b483-56059d77e450", // original file: Apartment2_360_03.jpg
+      imageUrl: "blob:http://localhost:5173/f1abef98-d2eb-4ef7-b483-56059d77e450",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 133.139627, pitch: -17.155637, target: "scene-1" },
@@ -55,7 +55,7 @@ export const data = {
     {
       id: "scene-4",
       name: "scene4",
-      imageUrl: "blob:http://localhost:5173/0410f943-286f-41c3-bad5-cda5baf3e089", // original file: Apartment2_360_04.jpg
+      imageUrl: "blob:http://localhost:5173/0410f943-286f-41c3-bad5-cda5baf3e089",
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 117.383696, pitch: -12.720225, target: "scene-1" },

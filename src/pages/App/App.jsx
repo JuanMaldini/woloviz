@@ -10,15 +10,12 @@ function App() {
   const hideFooterOn = new Set([
     "/apartment-1",
     "/apartment-2",
-    "/apartment-3",
-    "/samplesvg",
     "/playground",
     "/controls_orbit",
     "/controls_pointerlock",
-    "/ar_chair_01",
-    "/ar_pantry",
-    "/art_example",
-    "/generator-invoice"
+    "/ar_augmentedreality",
+    "/ar_tracking",
+    "/generator-invoice",
   ]);
   const shouldHideFooter = hideFooterOn.has(location.pathname.toLowerCase());
   const layoutClass = `flex min-h-[100dvh] w-full flex-col bg-[#d9d9d9]${shouldHideFooter ? " h-[100dvh] overflow-hidden" : ""}`;

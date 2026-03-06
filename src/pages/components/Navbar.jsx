@@ -1,9 +1,23 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
 import logo from "/icons/logo.svg";
 
+// Paths where About, Projects and Contact links (and the burger menu) are hidden
+const HIDDEN_NAV_PATHS = [
+  "/apartment-1",
+  "/apartment-2",
+  "/apartment-3",
+  "/playground",
+  "/controls_orbit",
+  "/controls_pointerlock",
+  "/ar_augmentedreality",
+  "/art_example",
+];
+
 const Navbar = () => {
+  const location = useLocation();
+  const hideNav = HIDDEN_NAV_PATHS.includes(location.pathname);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasTopBarContent, setHasTopBarContent] = useState(false);
   const navClassName = isMenuOpen
@@ -50,38 +64,40 @@ const Navbar = () => {
         id="marzipanoTopBarSlot"
         className="relative flex-1 h-10 min-h-[40px] overflow-visible"
       />
-      <div className="flex items-center gap-3">
-        <nav className={navClassName}>
-          <Link
-            to="/about"
-            className={linkClassName}
-            onClick={() => setIsMenuOpen(false)}
+      {!hideNav && (
+        <div className="flex items-center gap-3">
+          <nav className={navClassName}>
+            <Link
+              to="/about"
+              className={linkClassName}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              About
+            </Link>
+            <Link
+              to="/projects"
+              className={linkClassName}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Projects
+            </Link>
+            <Link
+              to="/contact"
+              className={linkClassName}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Contact
+            </Link>
+          </nav>
+          <button
+            className="inline-flex items-center justify-center rounded p-1 text-2xl text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 md:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
           >
-            About
-          </Link>
-          <Link
-            to="/projects"
-            className={linkClassName}
-            onClick={() => setIsMenuOpen(false)}
-          >
-            Projects
-          </Link>
-          <Link
-            to="/contact"
-            className={linkClassName}
-            onClick={() => setIsMenuOpen(false)}
-          >
-            Contact
-          </Link>
-        </nav>
-        <button
-          className="inline-flex items-center justify-center rounded p-1 text-2xl text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 md:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          <GiHamburgerMenu />
-        </button>
-      </div>
+            <GiHamburgerMenu />
+          </button>
+        </div>
+      )}
     </header>
   );
 };

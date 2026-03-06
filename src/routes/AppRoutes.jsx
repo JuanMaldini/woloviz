@@ -19,9 +19,9 @@ import Playground from "../pages/Projects/Tours/playground/playground";
 import Controls_Orbit from "../pages/Projects/3DSites/controls_orbit";
 import Controls_PointerLock from "../pages/Projects/3DSites/controls_pointerlock";
 
-import AR_Chair_01 from "../pages/Projects/ARSpace/AR_Chair_01";
+import ArAugmentedReality from "../pages/Projects/ARSpace/ar_augmentedreality";
 
-import ART_example from "../pages/Projects/ARTraking/ART_example";
+import AR_Tracking from "../pages/Projects/ARTraking/ar_tracking";
 
 import Renderings from "../pages/Projects/Renderings/Renderings";
 
@@ -54,10 +54,10 @@ const AppRoutes = () => {
       <Route path="/controls_pointerlock" element={<Controls_PointerLock />} />
 
       {/*AR SPACE*/}
-      <Route path="/ar_chair_01" element={<AR_Chair_01 />} />
+      <Route path="/ar_augmentedreality" element={<ArAugmentedReality />} />
 
       {/*AR TRACKING*/}
-      <Route path="/art_example" element={<ART_example />} />
+      <Route path="/ar_tracking" element={<AR_Tracking />} />
 
       {/*RENDERINGS*/}
       <Route path="/renderings" element={<Renderings />} />

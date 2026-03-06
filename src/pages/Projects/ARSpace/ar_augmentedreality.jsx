@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import ARModelSlots from "./components/ARModelSlots";
 import ARViewerWithLoader from "./components/ARViewerWithLoader";
 
-const AR_Chair_01 = () => {
+const ArAugmentedReality = () => {
   const models = useMemo(
     () => [
       { label: "Chair", modelSrc: "/models/arm_chair__furniture.glb" },
@@ -25,4 +25,4 @@ const AR_Chair_01 = () => {
   );
 };
 
-export default AR_Chair_01;
+export default ArAugmentedReality;

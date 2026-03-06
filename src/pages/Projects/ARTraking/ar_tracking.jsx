@@ -1,7 +1,7 @@
 import React from "react";
 import ARTrackingIframe from "./components/ARTrackingIframe";
 
-const ART_example = () => {
+const AR_Tracking = () => {
   return (
     <ARTrackingIframe
       modelUrl="/models/arm_chair__furniture.glb"
@@ -11,4 +11,4 @@ const ART_example = () => {
   );
 };
 
-export default ART_example;
+export default AR_Tracking;

@@ -27,7 +27,7 @@ export const data = {
     {
       id: "scene-1",
       name: "scene1",
-      imageUrl: "/public/projects/Apartment2/Apartment2_360_01.jpg", // original file: Apartment2_360_01.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_01.jpg", // original file: Apartment2_360_01.jpg
       equirectWidth: 4000,
       initialViewParameters: {
         pitch: 5,
@@ -44,7 +44,7 @@ export const data = {
     {
       id: "scene-2",
       name: "scene2",
-      imageUrl: "/public/projects/Apartment2/Apartment2_360_02.jpg", // original file: Apartment2_360_02.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_02.jpg", // original file: Apartment2_360_02.jpg
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 178.901774, pitch: -21.890689, target: "scene-1" },
@@ -57,7 +57,7 @@ export const data = {
     {
       id: "scene-3",
       name: "scene3",
-      imageUrl: "/public/projects/Apartment2/Apartment2_360_03.jpg", // original file: Apartment2_360_03.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_03.jpg", // original file: Apartment2_360_03.jpg
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 133.139627, pitch: -17.155637, target: "scene-1" },
@@ -70,7 +70,7 @@ export const data = {
     {
       id: "scene-4",
       name: "scene4",
-      imageUrl: "/public/projects/Apartment2/Apartment2_360_04.jpg", // original file: Apartment2_360_04.jpg
+      imageUrl: "/projects/Apartment2/Apartment2_360_04.jpg", // original file: Apartment2_360_04.jpg
       equirectWidth: 4000,
       linkHotspots: [
         { yaw: 117.383696, pitch: -12.720225, target: "scene-1" },
@@ -82,7 +82,6 @@ export const data = {
     }
   ],
   name: "Apartment2",
-  floorplanImageUrl: "/public/projects/Apartment2/Apartment2_360_top.jpg",
   settings: {
     mouseViewMode: "drag",
     autorotateEnabled: false,
